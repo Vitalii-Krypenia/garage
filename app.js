@@ -9,6 +9,7 @@ const state = {
   clients: [],
   serviceItems: [],
   appointments: [],
+  employees: [],
   closedDays: [],
   activeTab: "dashboard",
   calendarDate: new Date(),
@@ -34,8 +35,10 @@ const elements = {
   pageTitle: byId("pageTitle"),
   dashboardTabBtn: byId("dashboardTabBtn"),
   clientsTabBtn: byId("clientsTabBtn"),
+  employeesTabBtn: byId("employeesTabBtn"),
   catalogTabBtn: byId("catalogTabBtn"),
   dashboardView: byId("dashboardView"),
+  employeesView: byId("employeesView"),
   calendarMonth: byId("calendarMonth"),
   calendarGrid: byId("calendarGrid"),
   prevMonthBtn: byId("prevMonthBtn"),
@@ -52,6 +55,8 @@ const elements = {
   deleteClientBtn: byId("deleteClientBtn"),
   serviceCatalogForm: byId("serviceCatalogForm"),
   serviceCatalog: byId("serviceCatalog"),
+  employeeForm: byId("employeeForm"),
+  employeeList: byId("employeeList"),
   newCarBtn: byId("newCarBtn"),
   carList: byId("carList"),
   carForm: byId("carForm"),
@@ -89,6 +94,7 @@ function save() {
     clients: state.clients,
     serviceItems: state.serviceItems,
     appointments: state.appointments,
+    employees: state.employees,
     closedDays: state.closedDays,
   }));
 }
@@ -99,7 +105,11 @@ function load() {
   state.clients = Array.isArray(saved) ? saved : saved.clients || [];
   state.serviceItems = Array.isArray(saved.serviceItems) ? saved.serviceItems : [];
   state.appointments = Array.isArray(saved.appointments) ? saved.appointments : [];
+  state.employees = Array.isArray(saved.employees) ? saved.employees : [];
   state.closedDays = Array.isArray(saved.closedDays) ? saved.closedDays : [];
+  if (!state.employees.length) {
+    state.employees = [{ id: uid(), name: "Майстер", phone: "" }];
+  }
   if (state.clients[0]) {
     state.selectedClientId = state.clients[0].id;
     state.selectedCarId = state.clients[0].cars?.[0]?.id || null;
@@ -140,6 +150,7 @@ function render() {
   renderStats();
   renderClients();
   renderServiceCatalog();
+  renderEmployees();
   renderSchedule();
   renderTabs();
   renderMain();
@@ -149,10 +160,13 @@ function renderTabs() {
   const isDashboard = state.activeTab === "dashboard";
   const isCatalog = state.activeTab === "catalog";
   const isClients = state.activeTab === "clients";
+  const isEmployees = state.activeTab === "employees";
   elements.dashboardTabBtn.classList.toggle("active", isDashboard);
   elements.clientsTabBtn.classList.toggle("active", isClients);
+  elements.employeesTabBtn.classList.toggle("active", isEmployees);
   elements.catalogTabBtn.classList.toggle("active", isCatalog);
   elements.dashboardView.classList.toggle("hidden", !isDashboard);
+  elements.employeesView.classList.toggle("hidden", !isEmployees);
   elements.catalogView.classList.toggle("hidden", !isCatalog);
 }
 
@@ -164,10 +178,12 @@ function renderStats() {
     0,
   );
   const plannedCount = state.appointments.length;
+  const employeeCount = state.employees.length;
 
   elements.stats.innerHTML = `
     <div class="stat"><b>${clientCount}</b><span>клієнтів</span></div>
     <div class="stat"><b>${carCount}</b><span>авто</span></div>
+    <div class="stat"><b>${employeeCount}</b><span>майстрів</span></div>
     <div class="stat"><b>${repairCount}</b><span>робіт</span></div>
     <div class="stat"><b>${plannedCount}</b><span>план</span></div>
   `;
@@ -205,6 +221,8 @@ function renderMain() {
   elements.content.classList.toggle("hidden", !isClients || !client);
   elements.pageTitle.textContent = isDashboard
     ? "Планування робіт"
+    : state.activeTab === "employees"
+      ? "Працівники"
     : isCatalog
     ? "Довідник робіт"
     : client
@@ -267,6 +285,22 @@ function renderServiceCatalog() {
     : `<p class="muted">Додайте типові роботи, щоб вибирати їх у ремонті.</p>`;
 }
 
+function renderEmployees() {
+  elements.employeeList.innerHTML = state.employees.length
+    ? state.employees
+        .map(
+          (employee) => `
+            <div class="employee-row" data-employee-id="${employee.id}">
+              <label>Ім'я<input name="employeeName" value="${escapeAttr(employee.name)}" /></label>
+              <label>Телефон<input name="employeePhone" value="${escapeAttr(employee.phone || "")}" /></label>
+              <button class="ghost danger" data-delete-employee="${employee.id}" type="button">×</button>
+            </div>
+          `,
+        )
+        .join("")
+    : `<p class="muted">Працівників ще немає.</p>`;
+}
+
 function renderSchedule() {
   renderScheduleSelectors();
   renderScheduleServiceChecklist();
@@ -277,6 +311,7 @@ function renderSchedule() {
 function renderScheduleSelectors() {
   const clientSelect = elements.scheduleForm.elements.clientId;
   const carSelect = elements.scheduleForm.elements.carId;
+  const employeeSelect = elements.scheduleForm.elements.employeeId;
   const selectedClientId = clientSelect.value || state.selectedClientId || state.clients[0]?.id || "";
   const client = state.clients.find((item) => item.id === selectedClientId) || state.clients[0] || null;
 
@@ -296,6 +331,13 @@ function renderScheduleSelectors() {
         })
         .join("")
     : `<option value="">Спочатку додайте авто</option>`;
+
+  const selectedEmployeeId = employeeSelect.value || state.employees[0]?.id || "";
+  employeeSelect.innerHTML = state.employees.length
+    ? state.employees
+        .map((employee) => `<option value="${employee.id}" ${employee.id === selectedEmployeeId ? "selected" : ""}>${escapeHtml(employee.name || "Працівник")}</option>`)
+        .join("")
+    : `<option value="">Спочатку додайте працівника</option>`;
 
   elements.scheduleForm.elements.date.value = state.selectedScheduleDate;
 }
@@ -332,7 +374,8 @@ function renderCalendar() {
     const key = dateKey(date);
     const isClosed = isClosedDay(key);
     const booked = bookedMinutesForDate(key);
-    const percent = Math.round((booked / DAY_CAPACITY_MINUTES) * 100);
+    const capacity = dayCapacityMinutes();
+    const percent = Math.round((booked / capacity) * 100);
     const loadClass = isClosed ? "day-off" : percent >= 90 ? "load-high" : percent >= 50 ? "load-medium" : percent > 0 ? "load-low" : "";
     days.push(`
       <button class="calendar-day ${date.getMonth() !== monthDate.getMonth() ? "outside" : ""} ${key === state.selectedScheduleDate ? "selected" : ""} ${loadClass}" data-calendar-date="${key}" type="button">
@@ -353,7 +396,7 @@ function renderDayAppointments() {
     month: "long",
   });
   const booked = bookedMinutesForDate(state.selectedScheduleDate);
-  elements.selectedDateTitle.textContent = `${title[0].toUpperCase() + title.slice(1)} · ${isClosed ? "вихідний" : `зайнято ${formatDuration(booked)} з ${formatDuration(DAY_CAPACITY_MINUTES)}`}`;
+  elements.selectedDateTitle.textContent = `${title[0].toUpperCase() + title.slice(1)} · ${isClosed ? "вихідний" : `зайнято ${formatDuration(booked)} з ${formatDuration(dayCapacityMinutes())}`}`;
   elements.toggleDayOffBtn.textContent = isClosed ? "Зробити робочим" : "Вихідний";
   elements.scheduleForm.classList.toggle("disabled-form", isClosed);
   [...elements.scheduleForm.elements].forEach((field) => {
@@ -364,12 +407,13 @@ function renderDayAppointments() {
         .map((appointment) => {
           const client = state.clients.find((item) => item.id === appointment.clientId);
           const car = client?.cars?.find((item) => item.id === appointment.carId);
+          const employee = employeeById(appointment.employeeId);
           const carTitle = car ? [car.model, car.year, car.plate].filter(Boolean).join(" · ") : "Авто не знайдено";
           return `
             <article class="appointment-item">
               <div>
                 <strong>${escapeHtml(appointmentTimeRange(appointment))} · ${escapeHtml(client?.name || "Клієнт не знайдений")}</strong>
-                <span class="muted">${escapeHtml(carTitle)} · ${formatDuration(appointment.durationMinutes || 60)}</span>
+                <span class="muted">${escapeHtml(carTitle)} · ${escapeHtml(employee?.name || "Працівник не вказаний")} · ${formatDuration(appointment.durationMinutes || 60)}</span>
               </div>
               <div>${escapeHtml(appointment.work || "").replaceAll("\n", "<br>")}</div>
               ${appointment.notes ? `<span class="muted">${escapeHtml(appointment.notes)}</span>` : ""}
@@ -396,6 +440,14 @@ function isClosedDay(date) {
 
 function bookedMinutesForDate(date) {
   return appointmentsForDate(date).reduce((sum, appointment) => sum + Number(appointment.durationMinutes || 60), 0);
+}
+
+function dayCapacityMinutes() {
+  return Math.max(state.employees.length, 1) * DAY_CAPACITY_MINUTES;
+}
+
+function employeeById(employeeId) {
+  return state.employees.find((employee) => employee.id === employeeId) || state.employees[0] || null;
 }
 
 function selectedScheduleServiceIds() {
@@ -448,9 +500,9 @@ function actualEndMinutes(start, durationMinutes) {
   return rawEnd;
 }
 
-function busyIntervalsForDate(date, excludeId = null) {
+function busyIntervalsForDate(date, employeeId, excludeId = null) {
   return appointmentsForDate(date)
-    .filter((appointment) => appointment.id !== excludeId && appointment.time)
+    .filter((appointment) => appointment.id !== excludeId && appointment.time && employeeForAppointment(appointment).id === employeeId)
     .map((appointment) => {
       const start = minutesFromTime(appointment.time);
       return {
@@ -460,16 +512,20 @@ function busyIntervalsForDate(date, excludeId = null) {
     });
 }
 
-function canFitAppointment(date, startTime, durationMinutes, excludeId = null) {
+function canFitAppointment(date, startTime, durationMinutes, employeeId, excludeId = null) {
   if (isClosedDay(date)) return false;
   const start = minutesFromTime(startTime);
   const end = actualEndMinutes(start, durationMinutes || 60);
   if (start < minutesFromTime(WORK_START) || end > minutesFromTime(WORK_END)) return false;
   if (start >= minutesFromTime(LUNCH_START) && start < minutesFromTime(LUNCH_END)) return false;
-  return !busyIntervalsForDate(date, excludeId).some((busy) => start < busy.end && end > busy.start);
+  return !busyIntervalsForDate(date, employeeId, excludeId).some((busy) => start < busy.end && end > busy.start);
 }
 
-function findNearestSlot(date, durationMinutes, preferredTime = WORK_START, excludeId = null) {
+function employeeForAppointment(appointment) {
+  return employeeById(appointment.employeeId) || state.employees[0] || { id: "default" };
+}
+
+function findNearestSlot(date, durationMinutes, preferredTime = WORK_START, employeeId = state.employees[0]?.id, excludeId = null) {
   let cursor = new Date(`${date}T00:00:00`);
   const preferredMinutes = minutesFromTime(preferredTime || WORK_START);
   for (let dayOffset = 0; dayOffset < 370; dayOffset += 1) {
@@ -478,7 +534,7 @@ function findNearestSlot(date, durationMinutes, preferredTime = WORK_START, excl
       const dayStart = dayOffset === 0 ? Math.max(preferredMinutes, minutesFromTime(WORK_START)) : minutesFromTime(WORK_START);
       for (let minute = roundToQuarter(dayStart); minute + durationMinutes <= minutesFromTime(WORK_END); minute += 15) {
         const candidate = timeFromMinutes(minute);
-        if (canFitAppointment(key, candidate, durationMinutes, excludeId)) {
+        if (canFitAppointment(key, candidate, durationMinutes, employeeId, excludeId)) {
           return { date: key, time: candidate };
         }
       }
@@ -530,7 +586,8 @@ function moveAppointmentsFromClosedDay(date) {
   const appointments = appointmentsForDate(date);
   let notMoved = 0;
   appointments.forEach((appointment) => {
-    const slot = findNearestSlot(nextDateKey(date), Number(appointment.durationMinutes || 60), appointment.time || WORK_START, appointment.id);
+    const employeeId = employeeForAppointment(appointment).id;
+    const slot = findNearestSlot(nextDateKey(date), Number(appointment.durationMinutes || 60), appointment.time || WORK_START, employeeId, appointment.id);
     if (!slot) {
       notMoved += 1;
       return;
@@ -767,12 +824,12 @@ function addAppointment(event) {
   event.preventDefault();
   const data = formData(elements.scheduleForm);
   const durationMinutes = Number(data.durationMinutes || 60);
-  if (!data.date || !data.clientId || !data.carId || !data.work.trim() || !durationMinutes) {
+  if (!data.date || !data.clientId || !data.carId || !data.employeeId || !data.work.trim() || !durationMinutes) {
     elements.scheduleForm.reportValidity();
     return;
   }
   const preferredTime = data.timeMode === "manual" ? data.time || WORK_START : data.time || WORK_START;
-  const slot = findNearestSlot(data.date, durationMinutes, preferredTime);
+  const slot = findNearestSlot(data.date, durationMinutes, preferredTime, data.employeeId);
   if (!slot) {
     alert("Не вдалося знайти вільний час для цього запису.");
     return;
@@ -784,6 +841,7 @@ function addAppointment(event) {
     time: slot.time,
     clientId: data.clientId,
     carId: data.carId,
+    employeeId: data.employeeId,
     work: data.work.trim(),
     durationMinutes,
     serviceItemIds: selectedScheduleServiceIds(),
@@ -811,6 +869,36 @@ function openAppointment(appointmentId) {
 function deleteAppointment(appointmentId) {
   if (!confirm("Видалити цей запис із планування?")) return;
   state.appointments = state.appointments.filter((appointment) => appointment.id !== appointmentId);
+  save();
+  render();
+}
+
+function addEmployee(event) {
+  event.preventDefault();
+  const data = formData(elements.employeeForm);
+  state.employees.push({
+    id: uid(),
+    name: data.name.trim(),
+    phone: data.phone.trim(),
+  });
+  elements.employeeForm.reset();
+  save();
+  render();
+}
+
+function deleteEmployee(employeeId) {
+  if (state.employees.length <= 1) {
+    alert("Має залишитися хоча б один працівник для планування.");
+    return;
+  }
+  if (!confirm("Видалити цього працівника? Його записи будуть перенесені на першого доступного працівника.")) return;
+  state.employees = state.employees.filter((employee) => employee.id !== employeeId);
+  const fallbackEmployeeId = state.employees[0]?.id;
+  state.appointments.forEach((appointment) => {
+    if (appointment.employeeId === employeeId) {
+      appointment.employeeId = fallbackEmployeeId;
+    }
+  });
   save();
   render();
 }
@@ -958,6 +1046,7 @@ function exportData() {
     clients: state.clients,
     serviceItems: state.serviceItems,
     appointments: state.appointments,
+    employees: state.employees,
     closedDays: state.closedDays,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -978,12 +1067,14 @@ function importData(file) {
       const clients = Array.isArray(payload) ? payload : payload.clients;
       const serviceItems = Array.isArray(payload.serviceItems) ? payload.serviceItems : [];
       const appointments = Array.isArray(payload.appointments) ? payload.appointments : [];
+      const employees = Array.isArray(payload.employees) ? payload.employees : [];
       const closedDays = Array.isArray(payload.closedDays) ? payload.closedDays : [];
       if (!Array.isArray(clients)) throw new Error("Bad backup");
       if (!confirm("Імпорт замінить поточну локальну базу. Продовжити?")) return;
       state.clients = clients;
       state.serviceItems = serviceItems;
       state.appointments = appointments;
+      state.employees = employees.length ? employees : [{ id: uid(), name: "Майстер", phone: "" }];
       state.closedDays = closedDays;
       state.selectedClientId = state.clients[0]?.id || null;
       state.selectedCarId = state.clients[0]?.cars?.[0]?.id || null;
@@ -1021,6 +1112,10 @@ elements.clientsTabBtn.addEventListener("click", () => {
   state.activeTab = "clients";
   render();
 });
+elements.employeesTabBtn.addEventListener("click", () => {
+  state.activeTab = "employees";
+  render();
+});
 elements.catalogTabBtn.addEventListener("click", () => {
   state.activeTab = "catalog";
   render();
@@ -1034,6 +1129,7 @@ elements.newRepairBtn.addEventListener("click", () => openRepairDialog());
 elements.addPartBtn.addEventListener("click", () => addPartRow());
 elements.saveRepairBtn.addEventListener("click", saveRepair);
 elements.scheduleForm.addEventListener("submit", addAppointment);
+elements.employeeForm.addEventListener("submit", addEmployee);
 elements.scheduleForm.elements.clientId.addEventListener("change", () => {
   const clientId = elements.scheduleForm.elements.clientId.value;
   const client = state.clients.find((item) => item.id === clientId);
@@ -1081,6 +1177,24 @@ elements.serviceCatalogForm.addEventListener("submit", (event) => {
   elements.serviceCatalogForm.reset();
   save();
   render();
+});
+
+elements.employeeList.addEventListener("input", (event) => {
+  const row = event.target.closest("[data-employee-id]");
+  if (!row) return;
+  const employee = state.employees.find((item) => item.id === row.dataset.employeeId);
+  if (!employee) return;
+  employee.name = row.querySelector('[name="employeeName"]').value.trim();
+  employee.phone = row.querySelector('[name="employeePhone"]').value.trim();
+  save();
+  renderScheduleSelectors();
+  renderDayAppointments();
+});
+
+elements.employeeList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-delete-employee]");
+  if (!button) return;
+  deleteEmployee(button.dataset.deleteEmployee);
 });
 
 elements.clientList.addEventListener("click", (event) => {
