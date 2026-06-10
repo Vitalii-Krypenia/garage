@@ -348,6 +348,11 @@ textarea {
   background: #fef3f2;
 }
 
+.calendar-day.day-off {
+  background: #e5e7eb;
+  color: #6b7280;
+}
+
 .calendar-day b {
   font-size: 16px;
 }
@@ -361,6 +366,52 @@ textarea {
   display: grid;
   gap: 10px;
   margin-top: 16px;
+}
+
+.calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.calendar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.calendar-legend i {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.legend-free {
+  background: #fff;
+}
+
+.legend-low {
+  background: #ecfdf3;
+}
+
+.legend-medium {
+  background: #fffaeb;
+}
+
+.legend-high {
+  background: #fef3f2;
+}
+
+.legend-off {
+  background: #e5e7eb;
+}
+
+.disabled-form {
+  opacity: 0.58;
 }
 
 .appointment-item {
@@ -473,7 +524,7 @@ button {
 
 .catalog-form {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 140px auto;
+  grid-template-columns: minmax(180px, 1fr) 140px 140px auto;
   gap: 12px;
   align-items: end;
   margin-bottom: 14px;
@@ -481,7 +532,7 @@ button {
 
 .catalog-row {
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) 120px 42px;
+  grid-template-columns: minmax(160px, 1fr) 120px 120px 42px;
   gap: 10px;
   align-items: end;
 }
