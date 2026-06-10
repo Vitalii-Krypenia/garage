@@ -9,17 +9,12 @@
   <body>
     <aside class="sidebar">
       <div class="brand">
-        <span class="brand-mark">СТО</span>
+        <span class="brand-mark">FG</span>
         <div>
-          <h1>Клієнти СТО</h1>
-          <p>Локальна база сервісу</p>
+          <h1>FAVORITE GARAGE</h1>
+          <p>Планування і база СТО</p>
         </div>
       </div>
-
-      <label class="search">
-        <span>Пошук</span>
-        <input id="searchInput" type="search" placeholder="Ім'я, телефон, авто, номер" />
-      </label>
 
       <button class="primary" id="newClientBtn" type="button">+ Новий клієнт</button>
       <div class="backup-actions">
@@ -27,23 +22,81 @@
         <button class="sidebar-btn" id="importBtn" type="button">Імпорт бази</button>
         <input class="hidden" id="importFile" type="file" accept="application/json,.json" />
       </div>
-
-      <div class="client-list" id="clientList"></div>
     </aside>
 
     <main class="workspace">
       <section class="topbar">
         <div>
-          <p class="eyebrow">Робочий журнал</p>
+          <p class="eyebrow">Робочий день</p>
           <h2 id="pageTitle">Оберіть клієнта</h2>
         </div>
         <div class="stats" id="stats"></div>
       </section>
 
       <nav class="tabs" aria-label="Розділи програми">
-        <button class="tab active" id="clientsTabBtn" type="button">Клієнти</button>
+        <button class="tab active" id="dashboardTabBtn" type="button">Планування</button>
+        <button class="tab" id="clientsTabBtn" type="button">Клієнти</button>
         <button class="tab" id="catalogTabBtn" type="button">Довідник робіт</button>
       </nav>
+
+      <section class="content" id="dashboardView">
+        <div class="schedule-layout">
+          <section class="panel">
+            <div class="panel-head">
+              <button class="ghost compact" id="prevMonthBtn" type="button">‹</button>
+              <h3 id="calendarMonth">Календар</h3>
+              <button class="ghost compact" id="nextMonthBtn" type="button">›</button>
+            </div>
+            <div class="calendar-weekdays">
+              <span>Пн</span>
+              <span>Вт</span>
+              <span>Ср</span>
+              <span>Чт</span>
+              <span>Пт</span>
+              <span>Сб</span>
+              <span>Нд</span>
+            </div>
+            <div class="calendar-grid" id="calendarGrid"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h3>Запис на роботи</h3>
+                <p class="muted" id="selectedDateTitle"></p>
+              </div>
+            </div>
+            <form class="grid-form" id="scheduleForm">
+              <label>
+                Дата
+                <input name="date" type="date" required />
+              </label>
+              <label>
+                Час
+                <input name="time" type="time" />
+              </label>
+              <label>
+                Клієнт
+                <select name="clientId" required></select>
+              </label>
+              <label>
+                Авто
+                <select name="carId" required></select>
+              </label>
+              <label class="wide">
+                Запланована робота
+                <textarea name="work" rows="2" required></textarea>
+              </label>
+              <label class="wide">
+                Нотатки
+                <textarea name="notes" rows="2"></textarea>
+              </label>
+              <button class="primary compact" type="submit">Запланувати</button>
+            </form>
+            <div class="day-list" id="dayAppointments"></div>
+          </section>
+        </div>
+      </section>
 
       <section class="empty" id="emptyState">
         <h2>Почніть з додавання клієнта</h2>
@@ -52,6 +105,17 @@
       </section>
 
       <section class="content hidden" id="content">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Перелік клієнтів</h3>
+          </div>
+          <label class="search light-search">
+            <span>Пошук</span>
+            <input id="searchInput" type="search" placeholder="Ім'я, телефон, авто, номер" />
+          </label>
+          <div class="client-list client-list-light" id="clientList"></div>
+        </div>
+
         <div class="panel">
           <div class="panel-head">
             <h3>Дані клієнта</h3>
