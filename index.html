@@ -36,6 +36,7 @@
       <nav class="tabs" aria-label="Розділи програми">
         <button class="tab active" id="dashboardTabBtn" type="button">Планування</button>
         <button class="tab" id="clientsTabBtn" type="button">Клієнти</button>
+        <button class="tab" id="employeesTabBtn" type="button">Працівники</button>
         <button class="tab" id="catalogTabBtn" type="button">Довідник робіт</button>
       </nav>
 
@@ -90,6 +91,10 @@
               <label>
                 Авто
                 <select name="carId" required></select>
+              </label>
+              <label>
+                Працівник
+                <select name="employeeId" required></select>
               </label>
               <label>
                 Тривалість, хв
@@ -276,6 +281,29 @@
             <button class="secondary compact" type="submit">+ Додати</button>
           </form>
           <div class="service-catalog" id="serviceCatalog"></div>
+        </div>
+      </section>
+
+      <section class="content hidden" id="employeesView">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h3>Працівники</h3>
+              <p class="muted">Додайте майстрів, щоб планувати роботи на конкретну людину.</p>
+            </div>
+          </div>
+          <form class="employee-form" id="employeeForm">
+            <label>
+              Ім'я працівника
+              <input name="name" placeholder="Наприклад: Андрій" required />
+            </label>
+            <label>
+              Телефон
+              <input name="phone" inputmode="tel" />
+            </label>
+            <button class="secondary compact" type="submit">+ Додати</button>
+          </form>
+          <div class="employee-list" id="employeeList"></div>
         </div>
       </section>
     </main>
