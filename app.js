@@ -1,9 +1,15 @@
 const STORAGE_KEY = "sto-client-registry-v1";
+const WORK_START = "09:00";
+const LUNCH_START = "13:00";
+const LUNCH_END = "14:00";
+const WORK_END = "18:00";
+const DAY_CAPACITY_MINUTES = 480;
 
 const state = {
   clients: [],
   serviceItems: [],
   appointments: [],
+  closedDays: [],
   activeTab: "dashboard",
   calendarDate: new Date(),
   selectedScheduleDate: today(),
@@ -35,7 +41,9 @@ const elements = {
   prevMonthBtn: byId("prevMonthBtn"),
   nextMonthBtn: byId("nextMonthBtn"),
   selectedDateTitle: byId("selectedDateTitle"),
+  toggleDayOffBtn: byId("toggleDayOffBtn"),
   scheduleForm: byId("scheduleForm"),
+  scheduleServiceChecklist: byId("scheduleServiceChecklist"),
   dayAppointments: byId("dayAppointments"),
   emptyState: byId("emptyState"),
   content: byId("content"),
@@ -81,6 +89,7 @@ function save() {
     clients: state.clients,
     serviceItems: state.serviceItems,
     appointments: state.appointments,
+    closedDays: state.closedDays,
   }));
 }
 
@@ -90,6 +99,7 @@ function load() {
   state.clients = Array.isArray(saved) ? saved : saved.clients || [];
   state.serviceItems = Array.isArray(saved.serviceItems) ? saved.serviceItems : [];
   state.appointments = Array.isArray(saved.appointments) ? saved.appointments : [];
+  state.closedDays = Array.isArray(saved.closedDays) ? saved.closedDays : [];
   if (state.clients[0]) {
     state.selectedClientId = state.clients[0].id;
     state.selectedCarId = state.clients[0].cars?.[0]?.id || null;
@@ -248,6 +258,7 @@ function renderServiceCatalog() {
             <div class="catalog-row" data-service-id="${item.id}">
               <label>Робота<input name="catalogName" value="${escapeAttr(item.name)}" /></label>
               <label>Ціна<input name="catalogPrice" type="number" min="0" step="0.01" value="${escapeAttr(item.price)}" /></label>
+              <label>Хв<input name="catalogDuration" type="number" min="15" step="15" value="${escapeAttr(item.durationMinutes || 60)}" /></label>
               <button class="ghost danger" data-delete-service="${item.id}" type="button">×</button>
             </div>
           `,
@@ -258,6 +269,7 @@ function renderServiceCatalog() {
 
 function renderSchedule() {
   renderScheduleSelectors();
+  renderScheduleServiceChecklist();
   renderCalendar();
   renderDayAppointments();
 }
@@ -288,6 +300,23 @@ function renderScheduleSelectors() {
   elements.scheduleForm.elements.date.value = state.selectedScheduleDate;
 }
 
+function renderScheduleServiceChecklist() {
+  const selectedIds = selectedScheduleServiceIds();
+  elements.scheduleServiceChecklist.innerHTML = state.serviceItems.length
+    ? state.serviceItems
+        .map(
+          (item) => `
+            <label class="service-choice">
+              <input type="checkbox" name="scheduleServiceItem" value="${item.id}" ${selectedIds.includes(item.id) ? "checked" : ""} />
+              <strong>${escapeHtml(item.name)}</strong>
+              <span>${formatDuration(item.durationMinutes || 60)}</span>
+            </label>
+          `,
+        )
+        .join("")
+    : `<p class="muted">Спочатку додайте роботи в довідник.</p>`;
+}
+
 function renderCalendar() {
   const monthDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth(), 1);
   const monthName = monthDate.toLocaleDateString("uk-UA", { month: "long", year: "numeric" });
@@ -301,12 +330,14 @@ function renderCalendar() {
     const date = new Date(start);
     date.setDate(start.getDate() + index);
     const key = dateKey(date);
-    const count = appointmentsForDate(key).length;
-    const loadClass = count >= 5 ? "load-high" : count >= 3 ? "load-medium" : count >= 1 ? "load-low" : "";
+    const isClosed = isClosedDay(key);
+    const booked = bookedMinutesForDate(key);
+    const percent = Math.round((booked / DAY_CAPACITY_MINUTES) * 100);
+    const loadClass = isClosed ? "day-off" : percent >= 90 ? "load-high" : percent >= 50 ? "load-medium" : percent > 0 ? "load-low" : "";
     days.push(`
       <button class="calendar-day ${date.getMonth() !== monthDate.getMonth() ? "outside" : ""} ${key === state.selectedScheduleDate ? "selected" : ""} ${loadClass}" data-calendar-date="${key}" type="button">
         <b>${date.getDate()}</b>
-        <span>${count ? `${count} записів` : "вільно"}</span>
+        <span>${isClosed ? "вихідний" : booked ? `${formatDuration(booked)} · ${percent}%` : "вільно"}</span>
       </button>
     `);
   }
@@ -315,12 +346,19 @@ function renderCalendar() {
 
 function renderDayAppointments() {
   const appointments = appointmentsForDate(state.selectedScheduleDate);
+  const isClosed = isClosedDay(state.selectedScheduleDate);
   const title = new Date(`${state.selectedScheduleDate}T00:00:00`).toLocaleDateString("uk-UA", {
     weekday: "long",
     day: "numeric",
     month: "long",
   });
-  elements.selectedDateTitle.textContent = title[0].toUpperCase() + title.slice(1);
+  const booked = bookedMinutesForDate(state.selectedScheduleDate);
+  elements.selectedDateTitle.textContent = `${title[0].toUpperCase() + title.slice(1)} · ${isClosed ? "вихідний" : `зайнято ${formatDuration(booked)} з ${formatDuration(DAY_CAPACITY_MINUTES)}`}`;
+  elements.toggleDayOffBtn.textContent = isClosed ? "Зробити робочим" : "Вихідний";
+  elements.scheduleForm.classList.toggle("disabled-form", isClosed);
+  [...elements.scheduleForm.elements].forEach((field) => {
+    field.disabled = isClosed && field.type !== "hidden";
+  });
   elements.dayAppointments.innerHTML = appointments.length
     ? appointments
         .map((appointment) => {
@@ -330,8 +368,8 @@ function renderDayAppointments() {
           return `
             <article class="appointment-item">
               <div>
-                <strong>${escapeHtml(appointment.time || "Без часу")} · ${escapeHtml(client?.name || "Клієнт не знайдений")}</strong>
-                <span class="muted">${escapeHtml(carTitle)}</span>
+                <strong>${escapeHtml(appointmentTimeRange(appointment))} · ${escapeHtml(client?.name || "Клієнт не знайдений")}</strong>
+                <span class="muted">${escapeHtml(carTitle)} · ${formatDuration(appointment.durationMinutes || 60)}</span>
               </div>
               <div>${escapeHtml(appointment.work || "").replaceAll("\n", "<br>")}</div>
               ${appointment.notes ? `<span class="muted">${escapeHtml(appointment.notes)}</span>` : ""}
@@ -350,6 +388,164 @@ function appointmentsForDate(date) {
   return state.appointments
     .filter((appointment) => appointment.date === date)
     .sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
+}
+
+function isClosedDay(date) {
+  return state.closedDays.includes(date);
+}
+
+function bookedMinutesForDate(date) {
+  return appointmentsForDate(date).reduce((sum, appointment) => sum + Number(appointment.durationMinutes || 60), 0);
+}
+
+function selectedScheduleServiceIds() {
+  return [...elements.scheduleServiceChecklist.querySelectorAll('input[name="scheduleServiceItem"]:checked')].map((input) => input.value);
+}
+
+function selectedScheduleServices() {
+  const ids = selectedScheduleServiceIds();
+  return state.serviceItems
+    .filter((item) => ids.includes(item.id))
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+      durationMinutes: Number(item.durationMinutes || 60),
+    }));
+}
+
+function applyScheduleServices() {
+  const services = selectedScheduleServices();
+  if (!services.length) {
+    elements.scheduleForm.elements.durationMinutes.value = 60;
+    return;
+  }
+  const workText = services.map((service) => service.name).join("\n");
+  const duration = services.reduce((sum, service) => sum + Number(service.durationMinutes || 60), 0);
+  if (!elements.scheduleForm.elements.work.value.trim()) {
+    elements.scheduleForm.elements.work.value = workText;
+  }
+  elements.scheduleForm.elements.durationMinutes.value = duration || 60;
+}
+
+function minutesFromTime(time) {
+  const [hours, minutes] = String(time || "00:00").split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function timeFromMinutes(totalMinutes) {
+  const hours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+  const minutes = String(totalMinutes % 60).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function actualEndMinutes(start, durationMinutes) {
+  const lunchStart = minutesFromTime(LUNCH_START);
+  const lunchEnd = minutesFromTime(LUNCH_END);
+  const rawEnd = start + Number(durationMinutes || 60);
+  if (start < lunchStart && rawEnd > lunchStart) {
+    return rawEnd + (lunchEnd - lunchStart);
+  }
+  return rawEnd;
+}
+
+function busyIntervalsForDate(date, excludeId = null) {
+  return appointmentsForDate(date)
+    .filter((appointment) => appointment.id !== excludeId && appointment.time)
+    .map((appointment) => {
+      const start = minutesFromTime(appointment.time);
+      return {
+        start,
+        end: actualEndMinutes(start, appointment.durationMinutes || 60),
+      };
+    });
+}
+
+function canFitAppointment(date, startTime, durationMinutes, excludeId = null) {
+  if (isClosedDay(date)) return false;
+  const start = minutesFromTime(startTime);
+  const end = actualEndMinutes(start, durationMinutes || 60);
+  if (start < minutesFromTime(WORK_START) || end > minutesFromTime(WORK_END)) return false;
+  if (start >= minutesFromTime(LUNCH_START) && start < minutesFromTime(LUNCH_END)) return false;
+  return !busyIntervalsForDate(date, excludeId).some((busy) => start < busy.end && end > busy.start);
+}
+
+function findNearestSlot(date, durationMinutes, preferredTime = WORK_START, excludeId = null) {
+  let cursor = new Date(`${date}T00:00:00`);
+  const preferredMinutes = minutesFromTime(preferredTime || WORK_START);
+  for (let dayOffset = 0; dayOffset < 370; dayOffset += 1) {
+    const key = dateKey(cursor);
+    if (!isClosedDay(key)) {
+      const dayStart = dayOffset === 0 ? Math.max(preferredMinutes, minutesFromTime(WORK_START)) : minutesFromTime(WORK_START);
+      for (let minute = roundToQuarter(dayStart); minute + durationMinutes <= minutesFromTime(WORK_END); minute += 15) {
+        const candidate = timeFromMinutes(minute);
+        if (canFitAppointment(key, candidate, durationMinutes, excludeId)) {
+          return { date: key, time: candidate };
+        }
+      }
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return null;
+}
+
+function roundToQuarter(minutes) {
+  return Math.ceil(minutes / 15) * 15;
+}
+
+function formatDuration(minutes) {
+  const value = Number(minutes || 0);
+  const hours = Math.floor(value / 60);
+  const rest = value % 60;
+  if (hours && rest) return `${hours} год ${rest} хв`;
+  if (hours) return `${hours} год`;
+  return `${rest} хв`;
+}
+
+function appointmentTimeRange(appointment) {
+  if (!appointment.time) return "Без часу";
+  const start = minutesFromTime(appointment.time);
+  const end = actualEndMinutes(start, appointment.durationMinutes || 60);
+  return `${appointment.time}-${timeFromMinutes(end)}`;
+}
+
+function toggleSelectedDayOff() {
+  const date = state.selectedScheduleDate;
+  if (isClosedDay(date)) {
+    state.closedDays = state.closedDays.filter((item) => item !== date);
+    save();
+    render();
+    return;
+  }
+
+  state.closedDays.push(date);
+  const notMoved = moveAppointmentsFromClosedDay(date);
+  if (notMoved) {
+    alert(`Не вдалося перенести ${notMoved} запис(и): перевірте тривалість робіт або розклад.`);
+  }
+  save();
+  render();
+}
+
+function moveAppointmentsFromClosedDay(date) {
+  const appointments = appointmentsForDate(date);
+  let notMoved = 0;
+  appointments.forEach((appointment) => {
+    const slot = findNearestSlot(nextDateKey(date), Number(appointment.durationMinutes || 60), appointment.time || WORK_START, appointment.id);
+    if (!slot) {
+      notMoved += 1;
+      return;
+    }
+    appointment.date = slot.date;
+    appointment.time = slot.time;
+    appointment.notes = [appointment.notes, `Перенесено з ${date}, бо день позначено вихідним.`].filter(Boolean).join("\n");
+  });
+  return notMoved;
+}
+
+function nextDateKey(date) {
+  const next = new Date(`${date}T00:00:00`);
+  next.setDate(next.getDate() + 1);
+  return dateKey(next);
 }
 
 function dateKey(date) {
@@ -570,23 +766,35 @@ function addCar() {
 function addAppointment(event) {
   event.preventDefault();
   const data = formData(elements.scheduleForm);
-  if (!data.date || !data.clientId || !data.carId || !data.work.trim()) {
+  const durationMinutes = Number(data.durationMinutes || 60);
+  if (!data.date || !data.clientId || !data.carId || !data.work.trim() || !durationMinutes) {
     elements.scheduleForm.reportValidity();
     return;
   }
+  const preferredTime = data.timeMode === "manual" ? data.time || WORK_START : data.time || WORK_START;
+  const slot = findNearestSlot(data.date, durationMinutes, preferredTime);
+  if (!slot) {
+    alert("Не вдалося знайти вільний час для цього запису.");
+    return;
+  }
+  const moved = slot.date !== data.date || (data.timeMode === "manual" && slot.time !== data.time);
   state.appointments.push({
     id: uid(),
-    date: data.date,
-    time: data.time,
+    date: slot.date,
+    time: slot.time,
     clientId: data.clientId,
     carId: data.carId,
     work: data.work.trim(),
-    notes: data.notes.trim(),
+    durationMinutes,
+    serviceItemIds: selectedScheduleServiceIds(),
+    services: selectedScheduleServices(),
+    notes: [data.notes.trim(), moved ? `Запис поставлено на найближчий вільний час: ${slot.date} ${slot.time}.` : ""].filter(Boolean).join("\n"),
   });
-  state.selectedScheduleDate = data.date;
-  state.calendarDate = new Date(`${data.date}T00:00:00`);
+  state.selectedScheduleDate = slot.date;
+  state.calendarDate = new Date(`${slot.date}T00:00:00`);
   elements.scheduleForm.elements.work.value = "";
   elements.scheduleForm.elements.notes.value = "";
+  elements.scheduleForm.elements.time.value = "";
   save();
   render();
 }
@@ -750,6 +958,7 @@ function exportData() {
     clients: state.clients,
     serviceItems: state.serviceItems,
     appointments: state.appointments,
+    closedDays: state.closedDays,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -769,11 +978,13 @@ function importData(file) {
       const clients = Array.isArray(payload) ? payload : payload.clients;
       const serviceItems = Array.isArray(payload.serviceItems) ? payload.serviceItems : [];
       const appointments = Array.isArray(payload.appointments) ? payload.appointments : [];
+      const closedDays = Array.isArray(payload.closedDays) ? payload.closedDays : [];
       if (!Array.isArray(clients)) throw new Error("Bad backup");
       if (!confirm("Імпорт замінить поточну локальну базу. Продовжити?")) return;
       state.clients = clients;
       state.serviceItems = serviceItems;
       state.appointments = appointments;
+      state.closedDays = closedDays;
       state.selectedClientId = state.clients[0]?.id || null;
       state.selectedCarId = state.clients[0]?.cars?.[0]?.id || null;
       save();
@@ -834,6 +1045,8 @@ elements.scheduleForm.elements.date.addEventListener("change", () => {
   state.calendarDate = new Date(`${state.selectedScheduleDate}T00:00:00`);
   renderSchedule();
 });
+elements.scheduleServiceChecklist.addEventListener("change", applyScheduleServices);
+elements.toggleDayOffBtn.addEventListener("click", toggleSelectedDayOff);
 elements.prevMonthBtn.addEventListener("click", () => {
   state.calendarDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth() - 1, 1);
   renderSchedule();
@@ -863,6 +1076,7 @@ elements.serviceCatalogForm.addEventListener("submit", (event) => {
     id: uid(),
     name: data.name.trim(),
     price: asNumber(data.price),
+    durationMinutes: asNumber(data.durationMinutes) || 60,
   });
   elements.serviceCatalogForm.reset();
   save();
@@ -955,6 +1169,7 @@ elements.serviceCatalog.addEventListener("input", (event) => {
   if (!item) return;
   item.name = row.querySelector('[name="catalogName"]').value.trim();
   item.price = asNumber(row.querySelector('[name="catalogPrice"]').value);
+  item.durationMinutes = asNumber(row.querySelector('[name="catalogDuration"]').value) || 60;
   save();
 });
 
