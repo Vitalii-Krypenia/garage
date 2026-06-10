@@ -330,9 +330,50 @@ button {
 
 .car-list,
 .repair-list,
-.parts-list {
+.parts-list,
+.service-catalog,
+.service-checklist {
   display: grid;
   gap: 10px;
+}
+
+.catalog-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 140px auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 14px;
+}
+
+.catalog-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 120px 42px;
+  gap: 10px;
+  align-items: end;
+}
+
+.service-choice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+  font-weight: 400;
+}
+
+.service-choice input {
+  width: auto;
+}
+
+.service-choice strong {
+  overflow-wrap: anywhere;
+}
+
+.checklist-block {
+  margin-top: 16px;
 }
 
 .car-item {
@@ -435,7 +476,9 @@ menu {
 
   .split,
   .grid-form,
-  .part-row {
+  .part-row,
+  .catalog-form,
+  .catalog-row {
     grid-template-columns: 1fr;
   }
 
