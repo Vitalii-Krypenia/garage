@@ -46,6 +46,7 @@ const elements = {
   repairDialogTitle: byId("repairDialogTitle"),
   repairServiceChecklist: byId("repairServiceChecklist"),
   partsList: byId("partsList"),
+  printArea: byId("printArea"),
   addPartBtn: byId("addPartBtn"),
   saveRepairBtn: byId("saveRepairBtn"),
 };
@@ -281,11 +282,113 @@ function repairTemplate(repair) {
         ${repair.oilChanged ? "<span>мастило замінено</span>" : ""}
       </div>
       <div class="repair-actions">
+        <button class="ghost compact" data-print-repair="${repair.id}" type="button">Друк</button>
         <button class="ghost compact" data-edit-repair="${repair.id}" type="button">Редагувати</button>
         <button class="ghost danger compact" data-delete-repair="${repair.id}" type="button">Видалити</button>
       </div>
     </article>
   `;
+}
+
+function repairTotals(repair) {
+  const parts = repair.parts || [];
+  const partsCost = parts.reduce((sum, part) => sum + Number(part.price || 0), 0);
+  const laborCost = Number(repair.laborCost || 0);
+  return {
+    partsCost,
+    laborCost,
+    total: partsCost + laborCost,
+  };
+}
+
+function printRepair(repairId) {
+  const client = selectedClient();
+  const car = selectedCar();
+  const repair = car?.repairs?.find((item) => item.id === repairId);
+  if (!client || !car || !repair) return;
+
+  const parts = repair.parts || [];
+  const totals = repairTotals(repair);
+  const savedServices = repair.services || selectedServiceNames(repair.serviceItemIds || []).map((name) => ({ name, price: 0 }));
+  const savedServicesTotal = savedServices.reduce((sum, service) => sum + Number(service.price || 0), 0);
+  const adjustment = totals.laborCost - savedServicesTotal;
+  const workRows = savedServices.length
+    ? [
+        ...savedServices.map((service, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(service.name)}</td><td class="right">${money(service.price)}</td></tr>`),
+        adjustment ? `<tr><td>${savedServices.length + 1}</td><td>Коригування ціни роботи</td><td class="right">${money(adjustment)}</td></tr>` : "",
+      ].join("")
+    : `<tr><td>1</td><td>${escapeHtml(repair.description)}</td><td class="right">${money(totals.laborCost)}</td></tr>`;
+  const partRows = parts.length
+    ? parts
+        .map(
+          (part, index) => `
+            <tr>
+              <td>${index + 1}</td>
+              <td>${escapeHtml(part.name || "Запчастина")}</td>
+              <td>${escapeHtml(part.serial || "")}</td>
+              <td class="right">${money(part.price)}</td>
+            </tr>
+          `,
+        )
+        .join("")
+    : `<tr><td colspan="4" class="muted-cell">Запчастини не вказані</td></tr>`;
+
+  elements.printArea.innerHTML = `
+    <div class="print-document">
+      <header class="print-header">
+        <div>
+          <h1>Акт виконаних робіт</h1>
+          <p>Дата: ${escapeHtml(repair.date)}</p>
+        </div>
+        <strong>СТО</strong>
+      </header>
+
+      <section class="print-grid">
+        <div>
+          <h2>Клієнт</h2>
+          <p><b>Ім'я:</b> ${escapeHtml(client.name || "")}</p>
+          <p><b>Телефон:</b> ${escapeHtml(client.phone || "")}</p>
+        </div>
+        <div>
+          <h2>Авто</h2>
+          <p><b>Модель:</b> ${escapeHtml(car.model || "")} ${car.year ? `(${escapeHtml(car.year)})` : ""}</p>
+          <p><b>Держ. номер:</b> ${escapeHtml(car.plate || "")}</p>
+          <p><b>VIN:</b> ${escapeHtml(car.vin || "")}</p>
+          <p><b>Одометр:</b> ${Number(repair.odometer || 0).toLocaleString("uk-UA")} км</p>
+        </div>
+      </section>
+
+      <h2>Виконані роботи</h2>
+      <table>
+        <thead><tr><th>№</th><th>Найменування</th><th>Ціна</th></tr></thead>
+        <tbody>${workRows}</tbody>
+      </table>
+
+      <h2>Запчастини</h2>
+      <table>
+        <thead><tr><th>№</th><th>Назва</th><th>Серійний номер</th><th>Ціна</th></tr></thead>
+        <tbody>${partRows}</tbody>
+      </table>
+
+      <section class="print-summary">
+        <p><span>Робота:</span><b>${money(totals.laborCost)}</b></p>
+        <p><span>Запчастини:</span><b>${money(totals.partsCost)}</b></p>
+        <p class="total"><span>Разом:</span><b>${money(totals.total)}</b></p>
+      </section>
+
+      <section class="print-notes">
+        <h2>Опис робіт</h2>
+        <p>${escapeHtml(repair.description).replaceAll("\n", "<br>")}</p>
+        ${repair.oilChanged ? "<p><b>Позначка:</b> мастило замінено.</p>" : ""}
+      </section>
+
+      <footer class="print-signatures">
+        <div>Виконавець ____________________</div>
+        <div>Клієнт ____________________</div>
+      </footer>
+    </div>
+  `;
+  window.print();
 }
 
 function addClient() {
@@ -377,6 +480,17 @@ function selectedRepairServiceIds() {
   return [...elements.repairServiceChecklist.querySelectorAll('input[name="serviceItem"]:checked')].map((input) => input.value);
 }
 
+function selectedRepairServices() {
+  const ids = selectedRepairServiceIds();
+  return state.serviceItems
+    .filter((item) => ids.includes(item.id))
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+      price: asNumber(item.price),
+    }));
+}
+
 function applySelectedServicesToRepair() {
   const ids = selectedRepairServiceIds();
   const selected = state.serviceItems.filter((item) => ids.includes(item.id));
@@ -430,6 +544,7 @@ function saveRepair() {
     oilChanged: data.oilChanged === "yes",
     description: data.description.trim(),
     serviceItemIds: selectedRepairServiceIds(),
+    services: selectedRepairServices(),
     parts,
   };
 
@@ -609,6 +724,8 @@ elements.deleteCarBtn.addEventListener("click", () => {
 elements.repairList.addEventListener("click", (event) => {
   const editButton = event.target.closest("[data-edit-repair]");
   const deleteButton = event.target.closest("[data-delete-repair]");
+  const printButton = event.target.closest("[data-print-repair]");
+  if (printButton) printRepair(printButton.dataset.printRepair);
   if (editButton) openRepairDialog(editButton.dataset.editRepair);
   if (deleteButton) deleteRepair(deleteButton.dataset.deleteRepair);
 });
