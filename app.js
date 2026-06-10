@@ -3,6 +3,7 @@ const STORAGE_KEY = "sto-client-registry-v1";
 const state = {
   clients: [],
   serviceItems: [],
+  activeTab: "clients",
   selectedClientId: null,
   selectedCarId: null,
   editingRepairId: null,
@@ -22,8 +23,11 @@ const elements = {
   clientList: byId("clientList"),
   stats: byId("stats"),
   pageTitle: byId("pageTitle"),
+  clientsTabBtn: byId("clientsTabBtn"),
+  catalogTabBtn: byId("catalogTabBtn"),
   emptyState: byId("emptyState"),
   content: byId("content"),
+  catalogView: byId("catalogView"),
   clientForm: byId("clientForm"),
   deleteClientBtn: byId("deleteClientBtn"),
   serviceCatalogForm: byId("serviceCatalogForm"),
@@ -111,7 +115,15 @@ function render() {
   renderStats();
   renderClients();
   renderServiceCatalog();
+  renderTabs();
   renderMain();
+}
+
+function renderTabs() {
+  const isCatalog = state.activeTab === "catalog";
+  elements.clientsTabBtn.classList.toggle("active", !isCatalog);
+  elements.catalogTabBtn.classList.toggle("active", isCatalog);
+  elements.catalogView.classList.toggle("hidden", !isCatalog);
 }
 
 function renderStats() {
@@ -153,12 +165,17 @@ function renderClients() {
 }
 
 function renderMain() {
+  const isCatalog = state.activeTab === "catalog";
   const client = selectedClient();
-  elements.emptyState.classList.toggle("hidden", Boolean(client));
-  elements.content.classList.toggle("hidden", !client);
-  elements.pageTitle.textContent = client ? client.name || "Клієнт без імені" : "Оберіть клієнта";
+  elements.emptyState.classList.toggle("hidden", isCatalog || Boolean(client));
+  elements.content.classList.toggle("hidden", isCatalog || !client);
+  elements.pageTitle.textContent = isCatalog
+    ? "Довідник робіт"
+    : client
+      ? client.name || "Клієнт без імені"
+      : "Оберіть клієнта";
 
-  if (!client) return;
+  if (isCatalog || !client) return;
 
   setFormValues(elements.clientForm, client);
   renderCars(client);
@@ -280,6 +297,7 @@ function addClient() {
     cars: [],
   };
   state.clients.unshift(client);
+  state.activeTab = "clients";
   state.selectedClientId = client.id;
   state.selectedCarId = null;
   save();
@@ -495,6 +513,14 @@ function escapeAttr(value = "") {
 
 elements.newClientBtn.addEventListener("click", addClient);
 elements.emptyNewClientBtn.addEventListener("click", addClient);
+elements.clientsTabBtn.addEventListener("click", () => {
+  state.activeTab = "clients";
+  render();
+});
+elements.catalogTabBtn.addEventListener("click", () => {
+  state.activeTab = "catalog";
+  render();
+});
 elements.exportBtn.addEventListener("click", exportData);
 elements.importBtn.addEventListener("click", () => elements.importFile.click());
 elements.importFile.addEventListener("change", () => importData(elements.importFile.files[0]));
@@ -521,6 +547,7 @@ elements.clientList.addEventListener("click", (event) => {
   const button = event.target.closest("[data-client-id]");
   if (!button) return;
   const client = state.clients.find((item) => item.id === button.dataset.clientId);
+  state.activeTab = "clients";
   state.selectedClientId = client.id;
   state.selectedCarId = client.cars?.[0]?.id || null;
   render();
