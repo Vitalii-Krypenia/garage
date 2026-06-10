@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Облік клієнтів СТО</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">СТО</span>
+        <div>
+          <h1>Клієнти СТО</h1>
+          <p>Локальна база сервісу</p>
+        </div>
+      </div>
+
+      <label class="search">
+        <span>Пошук</span>
+        <input id="searchInput" type="search" placeholder="Ім'я, телефон, авто, номер" />
+      </label>
+
+      <button class="primary" id="newClientBtn" type="button">+ Новий клієнт</button>
+      <div class="backup-actions">
+        <button class="sidebar-btn" id="exportBtn" type="button">Експорт бази</button>
+        <button class="sidebar-btn" id="importBtn" type="button">Імпорт бази</button>
+        <input class="hidden" id="importFile" type="file" accept="application/json,.json" />
+      </div>
+
+      <div class="client-list" id="clientList"></div>
+    </aside>
+
+    <main class="workspace">
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">Робочий журнал</p>
+          <h2 id="pageTitle">Оберіть клієнта</h2>
+        </div>
+        <div class="stats" id="stats"></div>
+      </section>
+
+      <section class="empty" id="emptyState">
+        <h2>Почніть з додавання клієнта</h2>
+        <p>Дані залишаються у браузері на цьому комп'ютері. Для перенесення можна експортувати резервну копію.</p>
+        <button class="primary" id="emptyNewClientBtn" type="button">Додати першого клієнта</button>
+      </section>
+
+      <section class="content hidden" id="content">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Дані клієнта</h3>
+            <button class="ghost danger" id="deleteClientBtn" type="button">Видалити</button>
+          </div>
+          <form class="grid-form" id="clientForm">
+            <label>
+              Ім'я
+              <input name="name" required />
+            </label>
+            <label>
+              Мобільний
+              <input name="phone" inputmode="tel" />
+            </label>
+            <label class="wide">
+              Нотатки
+              <textarea name="notes" rows="2"></textarea>
+            </label>
+            <button class="primary compact" type="submit">Зберегти клієнта</button>
+          </form>
+        </div>
+
+        <div class="split">
+          <section class="panel">
+            <div class="panel-head">
+              <h3>Авто клієнта</h3>
+              <button class="secondary" id="newCarBtn" type="button">+ Авто</button>
+            </div>
+            <div class="car-list" id="carList"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h3 id="carTitle">Дані авто</h3>
+              <button class="ghost danger hidden" id="deleteCarBtn" type="button">Видалити авто</button>
+            </div>
+            <form class="grid-form" id="carForm">
+              <label>
+                VIN
+                <input name="vin" />
+              </label>
+              <label>
+                Держ. номер
+                <input name="plate" />
+              </label>
+              <label>
+                Марка / модель
+                <input name="model" />
+              </label>
+              <label>
+                Пальне
+                <select name="fuel">
+                  <option value="">Не вказано</option>
+                  <option>Бензин</option>
+                  <option>Дизель</option>
+                  <option>Газ</option>
+                  <option>Гібрид</option>
+                  <option>Електро</option>
+                </select>
+              </label>
+              <label>
+                КПП
+                <select name="gearbox">
+                  <option value="">Не вказано</option>
+                  <option>Механіка</option>
+                  <option>Автомат</option>
+                  <option>Робот</option>
+                  <option>Варіатор</option>
+                </select>
+              </label>
+              <label>
+                Мастило в моторі, л
+                <input name="oilVolume" type="number" step="0.1" min="0" />
+              </label>
+              <label>
+                Поточний одометр, км
+                <input name="odometer" type="number" min="0" />
+              </label>
+              <label>
+                Інтервал заміни мастила, км
+                <input name="oilInterval" type="number" min="0" placeholder="10000" />
+              </label>
+              <label>
+                Остання заміна мастила, км
+                <input name="lastOilChangeKm" type="number" min="0" />
+              </label>
+              <label class="wide">
+                Серійні номери фільтрів
+                <textarea name="filterSerials" rows="2" placeholder="Масляний, повітряний, паливний, салону"></textarea>
+              </label>
+              <button class="primary compact" type="submit">Зберегти авто</button>
+            </form>
+          </section>
+        </div>
+
+        <section class="panel hidden" id="servicePanel">
+          <div class="panel-head">
+            <div>
+              <h3>Ремонти та роботи</h3>
+              <p id="oilStatus" class="service-status"></p>
+            </div>
+            <button class="secondary" id="newRepairBtn" type="button">+ Робота</button>
+          </div>
+          <div class="repair-list" id="repairList"></div>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="repairDialog">
+      <form method="dialog" class="dialog-card" id="repairForm">
+        <div class="panel-head">
+          <h3 id="repairDialogTitle">Нова робота</h3>
+          <button class="icon-btn" value="cancel" type="submit" aria-label="Закрити">×</button>
+        </div>
+        <div class="grid-form">
+          <label>
+            Дата
+            <input name="date" type="date" required />
+          </label>
+          <label>
+            Одометр після роботи, км
+            <input name="odometer" type="number" min="0" required />
+          </label>
+          <label>
+            Ціна роботи
+            <input name="laborCost" type="number" min="0" step="0.01" />
+          </label>
+          <label>
+            Заміна мастила?
+            <select name="oilChanged">
+              <option value="no">Ні</option>
+              <option value="yes">Так</option>
+            </select>
+          </label>
+          <label class="wide">
+            Що робилося
+            <textarea name="description" rows="3" required></textarea>
+          </label>
+        </div>
+
+        <div class="parts-head">
+          <h4>Запчастини</h4>
+          <button class="secondary compact" id="addPartBtn" type="button">+ Запчастина</button>
+        </div>
+        <div id="partsList" class="parts-list"></div>
+
+        <menu>
+          <button class="ghost" value="cancel" type="submit">Скасувати</button>
+          <button class="primary" id="saveRepairBtn" value="default" type="button">Зберегти роботу</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>
