@@ -530,9 +530,29 @@ button {
   margin-bottom: 14px;
 }
 
+.employee-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(160px, 220px) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 14px;
+}
+
 .catalog-row {
   display: grid;
   grid-template-columns: minmax(160px, 1fr) 120px 120px 42px;
+  gap: 10px;
+  align-items: end;
+}
+
+.employee-list {
+  display: grid;
+  gap: 10px;
+}
+
+.employee-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(160px, 220px) 42px;
   gap: 10px;
   align-items: end;
 }
@@ -763,7 +783,9 @@ menu {
   .grid-form,
   .part-row,
   .catalog-form,
-  .catalog-row {
+  .catalog-row,
+  .employee-form,
+  .employee-row {
     grid-template-columns: 1fr;
   }
 
