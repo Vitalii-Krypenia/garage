@@ -2,9 +2,11 @@ const STORAGE_KEY = "sto-client-registry-v1";
 
 const state = {
   clients: [],
+  serviceItems: [],
   selectedClientId: null,
   selectedCarId: null,
   editingRepairId: null,
+  generatedRepairDescription: "",
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -24,6 +26,8 @@ const elements = {
   content: byId("content"),
   clientForm: byId("clientForm"),
   deleteClientBtn: byId("deleteClientBtn"),
+  serviceCatalogForm: byId("serviceCatalogForm"),
+  serviceCatalog: byId("serviceCatalog"),
   newCarBtn: byId("newCarBtn"),
   carList: byId("carList"),
   carForm: byId("carForm"),
@@ -36,6 +40,7 @@ const elements = {
   repairDialog: byId("repairDialog"),
   repairForm: byId("repairForm"),
   repairDialogTitle: byId("repairDialogTitle"),
+  repairServiceChecklist: byId("repairServiceChecklist"),
   partsList: byId("partsList"),
   addPartBtn: byId("addPartBtn"),
   saveRepairBtn: byId("saveRepairBtn"),
@@ -55,12 +60,17 @@ function money(value) {
 }
 
 function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.clients));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    clients: state.clients,
+    serviceItems: state.serviceItems,
+  }));
 }
 
 function load() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  state.clients = raw ? JSON.parse(raw) : [];
+  const saved = raw ? JSON.parse(raw) : [];
+  state.clients = Array.isArray(saved) ? saved : saved.clients || [];
+  state.serviceItems = Array.isArray(saved.serviceItems) ? saved.serviceItems : [];
   if (state.clients[0]) {
     state.selectedClientId = state.clients[0].id;
     state.selectedCarId = state.clients[0].cars?.[0]?.id || null;
@@ -100,6 +110,7 @@ function asNumber(value) {
 function render() {
   renderStats();
   renderClients();
+  renderServiceCatalog();
   renderMain();
 }
 
@@ -184,6 +195,22 @@ function renderCarDetails() {
   setFormValues(elements.carForm, car);
   renderOilStatus(car);
   renderRepairs();
+}
+
+function renderServiceCatalog() {
+  elements.serviceCatalog.innerHTML = state.serviceItems.length
+    ? state.serviceItems
+        .map(
+          (item) => `
+            <div class="catalog-row" data-service-id="${item.id}">
+              <label>Робота<input name="catalogName" value="${escapeAttr(item.name)}" /></label>
+              <label>Ціна<input name="catalogPrice" type="number" min="0" step="0.01" value="${escapeAttr(item.price)}" /></label>
+              <button class="ghost danger" data-delete-service="${item.id}" type="button">×</button>
+            </div>
+          `,
+        )
+        .join("")
+    : `<p class="muted">Додайте типові роботи, щоб вибирати їх у ремонті.</p>`;
 }
 
 function renderOilStatus(car) {
@@ -293,6 +320,7 @@ function openRepairDialog(repairId = null) {
   if (!car) return;
   const repair = repairId ? car.repairs.find((item) => item.id === repairId) : null;
   state.editingRepairId = repairId;
+  state.generatedRepairDescription = selectedServiceNames(repair?.serviceItemIds || []).join("\n");
   elements.repairDialogTitle.textContent = repair ? "Редагувати роботу" : "Нова робота";
   setFormValues(elements.repairForm, {
     date: repair?.date || today(),
@@ -301,9 +329,49 @@ function openRepairDialog(repairId = null) {
     oilChanged: repair?.oilChanged ? "yes" : "no",
     description: repair?.description || "",
   });
+  renderRepairServiceChecklist(repair?.serviceItemIds || []);
   elements.partsList.innerHTML = "";
   (repair?.parts?.length ? repair.parts : [{ name: "", serial: "", price: "" }]).forEach(addPartRow);
   elements.repairDialog.showModal();
+}
+
+function selectedServiceNames(ids) {
+  return state.serviceItems.filter((item) => ids.includes(item.id)).map((item) => item.name);
+}
+
+function renderRepairServiceChecklist(selectedIds = []) {
+  elements.repairServiceChecklist.innerHTML = state.serviceItems.length
+    ? state.serviceItems
+        .map(
+          (item) => `
+            <label class="service-choice">
+              <input type="checkbox" name="serviceItem" value="${item.id}" ${selectedIds.includes(item.id) ? "checked" : ""} />
+              <strong>${escapeHtml(item.name)}</strong>
+              <span>${money(item.price)}</span>
+            </label>
+          `,
+        )
+        .join("")
+    : `<p class="muted">Спочатку додайте роботи в довідник.</p>`;
+}
+
+function selectedRepairServiceIds() {
+  return [...elements.repairServiceChecklist.querySelectorAll('input[name="serviceItem"]:checked')].map((input) => input.value);
+}
+
+function applySelectedServicesToRepair() {
+  const ids = selectedRepairServiceIds();
+  const selected = state.serviceItems.filter((item) => ids.includes(item.id));
+  const serviceText = selected.map((item) => item.name).join("\n");
+  const description = elements.repairForm.elements.description;
+  const currentDescription = description.value.trim();
+  const generatedDescription = state.generatedRepairDescription.trim();
+
+  elements.repairForm.elements.laborCost.value = selected.reduce((sum, item) => sum + Number(item.price || 0), 0) || "";
+  if (!currentDescription || currentDescription === generatedDescription) {
+    description.value = serviceText;
+    state.generatedRepairDescription = serviceText;
+  }
 }
 
 function addPartRow(part = {}) {
@@ -343,6 +411,7 @@ function saveRepair() {
     laborCost: asNumber(data.laborCost),
     oilChanged: data.oilChanged === "yes",
     description: data.description.trim(),
+    serviceItemIds: selectedRepairServiceIds(),
     parts,
   };
 
@@ -375,6 +444,7 @@ function exportData() {
     app: "sto-client-registry",
     version: 1,
     clients: state.clients,
+    serviceItems: state.serviceItems,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -392,9 +462,11 @@ function importData(file) {
     try {
       const payload = JSON.parse(reader.result);
       const clients = Array.isArray(payload) ? payload : payload.clients;
+      const serviceItems = Array.isArray(payload.serviceItems) ? payload.serviceItems : [];
       if (!Array.isArray(clients)) throw new Error("Bad backup");
       if (!confirm("Імпорт замінить поточну локальну базу. Продовжити?")) return;
       state.clients = clients;
+      state.serviceItems = serviceItems;
       state.selectedClientId = state.clients[0]?.id || null;
       state.selectedCarId = state.clients[0]?.cars?.[0]?.id || null;
       save();
@@ -431,6 +503,19 @@ elements.newCarBtn.addEventListener("click", addCar);
 elements.newRepairBtn.addEventListener("click", () => openRepairDialog());
 elements.addPartBtn.addEventListener("click", () => addPartRow());
 elements.saveRepairBtn.addEventListener("click", saveRepair);
+
+elements.serviceCatalogForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const data = formData(elements.serviceCatalogForm);
+  state.serviceItems.push({
+    id: uid(),
+    name: data.name.trim(),
+    price: asNumber(data.price),
+  });
+  elements.serviceCatalogForm.reset();
+  save();
+  render();
+});
 
 elements.clientList.addEventListener("click", (event) => {
   const button = event.target.closest("[data-client-id]");
@@ -507,6 +592,27 @@ elements.partsList.addEventListener("click", (event) => {
   button.closest(".part-row").remove();
   if (!elements.partsList.children.length) addPartRow();
 });
+
+elements.serviceCatalog.addEventListener("input", (event) => {
+  const row = event.target.closest("[data-service-id]");
+  if (!row) return;
+  const item = state.serviceItems.find((service) => service.id === row.dataset.serviceId);
+  if (!item) return;
+  item.name = row.querySelector('[name="catalogName"]').value.trim();
+  item.price = asNumber(row.querySelector('[name="catalogPrice"]').value);
+  save();
+});
+
+elements.serviceCatalog.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-delete-service]");
+  if (!button) return;
+  if (!confirm("Видалити цю роботу з довідника? Старі ремонти залишаться без змін.")) return;
+  state.serviceItems = state.serviceItems.filter((item) => item.id !== button.dataset.deleteService);
+  save();
+  render();
+});
+
+elements.repairServiceChecklist.addEventListener("change", applySelectedServicesToRepair);
 
 load();
 render();
