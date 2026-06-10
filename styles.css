@@ -1,0 +1,450 @@
+:root {
+  color-scheme: light;
+  --bg: #f5f7f8;
+  --ink: #1e2a2f;
+  --muted: #657277;
+  --line: #d9e0e3;
+  --panel: #ffffff;
+  --primary: #0f766e;
+  --primary-dark: #0b5f59;
+  --secondary: #334155;
+  --danger: #b42318;
+  --warn: #b54708;
+  --ok: #087443;
+  --soft: #e9f5f3;
+  --shadow: 0 12px 30px rgba(24, 39, 46, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.sidebar {
+  min-height: 100vh;
+  padding: 22px;
+  background: #17252b;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-mark {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #f59e0b;
+  color: #17252b;
+  font-weight: 800;
+}
+
+.brand h1,
+.brand p,
+.topbar h2,
+.topbar p,
+.panel h3,
+.panel p,
+.parts-head h4 {
+  margin: 0;
+}
+
+.brand h1 {
+  font-size: 22px;
+}
+
+.brand p,
+.eyebrow {
+  color: #b8c6cb;
+  font-size: 13px;
+}
+
+.search {
+  display: grid;
+  gap: 8px;
+  color: #dbe5e8;
+}
+
+.search input {
+  width: 100%;
+  border: 1px solid #385057;
+  border-radius: 8px;
+  padding: 12px;
+  color: #fff;
+  background: #22343b;
+}
+
+.client-list {
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+  padding-right: 2px;
+}
+
+.backup-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sidebar-btn {
+  border: 1px solid #385057;
+  background: #22343b;
+  color: #e8f0f2;
+}
+
+.sidebar-btn:hover {
+  background: #2d444c;
+}
+
+.client-item,
+.car-item,
+.repair-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--panel);
+}
+
+.client-item {
+  color: #e8f0f2;
+  background: transparent;
+  border-color: #344c54;
+  cursor: pointer;
+  text-align: left;
+}
+
+.client-item.active {
+  background: #e9f5f3;
+  color: #123235;
+  border-color: #76b9ad;
+}
+
+.client-item strong,
+.car-item strong,
+.repair-item strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.client-item span,
+.car-item span,
+.repair-item span,
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.client-item span {
+  color: inherit;
+  opacity: 0.78;
+}
+
+.workspace {
+  min-width: 0;
+  padding: 24px;
+}
+
+.topbar {
+  min-height: 78px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+
+.topbar h2 {
+  font-size: 28px;
+}
+
+.stats {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.stat {
+  min-width: 92px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--panel);
+}
+
+.stat b {
+  display: block;
+  font-size: 20px;
+}
+
+.empty,
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.empty {
+  min-height: 360px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 14px;
+  padding: 28px;
+  text-align: center;
+}
+
+.empty p {
+  max-width: 560px;
+  color: var(--muted);
+}
+
+.content {
+  display: grid;
+  gap: 18px;
+}
+
+.panel {
+  padding: 18px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(360px, 1.2fr);
+  gap: 18px;
+}
+
+.grid-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+label {
+  display: grid;
+  gap: 7px;
+  color: var(--secondary);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 11px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 400;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+button {
+  border: 0;
+  border-radius: 8px;
+  padding: 11px 14px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.primary {
+  color: #fff;
+  background: var(--primary);
+}
+
+.primary:hover {
+  background: var(--primary-dark);
+}
+
+.secondary {
+  color: #fff;
+  background: var(--secondary);
+}
+
+.ghost {
+  color: var(--secondary);
+  background: #eef2f4;
+}
+
+.danger {
+  color: var(--danger);
+}
+
+.compact {
+  width: fit-content;
+  padding: 9px 12px;
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: #eef2f4;
+  color: var(--secondary);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.car-list,
+.repair-list,
+.parts-list {
+  display: grid;
+  gap: 10px;
+}
+
+.car-item {
+  cursor: pointer;
+  text-align: left;
+}
+
+.car-item.active {
+  border-color: var(--primary);
+  background: var(--soft);
+}
+
+.service-status {
+  margin-top: 5px;
+  color: var(--muted);
+}
+
+.service-status.ok {
+  color: var(--ok);
+}
+
+.service-status.warn {
+  color: var(--warn);
+}
+
+.service-status.due {
+  color: var(--danger);
+}
+
+.repair-item {
+  display: grid;
+  gap: 8px;
+}
+
+.repair-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.repair-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+dialog {
+  width: min(780px, calc(100vw - 28px));
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+dialog::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.dialog-card {
+  padding: 18px;
+}
+
+.parts-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0 10px;
+}
+
+.part-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) 110px 42px;
+  gap: 10px;
+  align-items: end;
+}
+
+menu {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0;
+  margin: 20px 0 0;
+}
+
+.hidden {
+  display: none !important;
+}
+
+@media (max-width: 900px) {
+  body {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    min-height: auto;
+  }
+
+  .split,
+  .grid-form,
+  .part-row {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .stats {
+    justify-content: stretch;
+  }
+}
