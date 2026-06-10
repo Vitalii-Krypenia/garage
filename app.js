@@ -122,7 +122,7 @@ function renderClients() {
   const query = elements.searchInput.value.trim().toLowerCase();
   const filtered = state.clients.filter((client) => {
     const carsText = (client.cars || [])
-      .map((car) => `${car.vin} ${car.plate} ${car.model}`)
+      .map((car) => `${car.vin} ${car.plate} ${car.model} ${car.year}`)
       .join(" ");
     return `${client.name} ${client.phone} ${carsText}`.toLowerCase().includes(query);
   });
@@ -160,7 +160,7 @@ function renderCars(client) {
         .map(
           (car) => `
             <button class="car-item ${car.id === state.selectedCarId ? "active" : ""}" data-car-id="${car.id}" type="button">
-              <strong>${escapeHtml(car.model || car.plate || car.vin || "Авто без назви")}</strong>
+              <strong>${escapeHtml(car.model || car.plate || car.vin || "Авто без назви")}${car.year ? ` · ${escapeHtml(car.year)}` : ""}</strong>
               <span>${escapeHtml(car.plate || "номер не вказано")} · ${escapeHtml(car.odometer || 0)} км</span>
             </button>
           `,
@@ -269,6 +269,7 @@ function addCar() {
     vin: "",
     plate: "",
     model: "Нове авто",
+    year: "",
     fuel: "",
     gearbox: "",
     oilVolume: "",
@@ -463,6 +464,7 @@ elements.carForm.addEventListener("submit", (event) => {
   const data = formData(elements.carForm);
   Object.assign(car, {
     ...data,
+    year: asNumber(data.year),
     oilVolume: asNumber(data.oilVolume),
     odometer: asNumber(data.odometer),
     oilInterval: asNumber(data.oilInterval) || 10000,
