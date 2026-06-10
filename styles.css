@@ -98,11 +98,26 @@ textarea {
   background: #22343b;
 }
 
+.light-search {
+  color: var(--secondary);
+  margin-bottom: 12px;
+}
+
+.light-search input {
+  border-color: var(--line);
+  color: var(--ink);
+  background: #fff;
+}
+
 .client-list {
   overflow: auto;
   display: grid;
   gap: 8px;
   padding-right: 2px;
+}
+
+.client-list-light {
+  max-height: 280px;
 }
 
 .backup-actions {
@@ -142,6 +157,17 @@ textarea {
   background: #e9f5f3;
   color: #123235;
   border-color: #76b9ad;
+}
+
+.client-list-light .client-item {
+  color: var(--ink);
+  border-color: var(--line);
+  background: #fff;
+}
+
+.client-list-light .client-item.active {
+  background: var(--soft);
+  border-color: var(--primary);
 }
 
 .client-item strong,
@@ -265,6 +291,95 @@ textarea {
   display: grid;
   grid-template-columns: minmax(260px, 0.8fr) minmax(360px, 1.2fr);
   gap: 18px;
+}
+
+.schedule-layout {
+  display: grid;
+  grid-template-columns: minmax(380px, 1.1fr) minmax(340px, 0.9fr);
+  gap: 18px;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.calendar-weekdays {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.calendar-day {
+  min-height: 76px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+  display: grid;
+  align-content: space-between;
+  gap: 8px;
+}
+
+.calendar-day.outside {
+  opacity: 0.38;
+}
+
+.calendar-day.selected {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.calendar-day.load-low {
+  background: #ecfdf3;
+}
+
+.calendar-day.load-medium {
+  background: #fffaeb;
+}
+
+.calendar-day.load-high {
+  background: #fef3f2;
+}
+
+.calendar-day b {
+  font-size: 16px;
+}
+
+.calendar-day span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.day-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.appointment-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+  display: grid;
+  gap: 8px;
+}
+
+.appointment-item strong {
+  display: block;
+}
+
+.appointment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .grid-form {
@@ -593,6 +708,7 @@ menu {
   }
 
   .split,
+  .schedule-layout,
   .grid-form,
   .part-row,
   .catalog-form,
