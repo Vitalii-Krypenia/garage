@@ -484,6 +484,101 @@ menu {
   display: none !important;
 }
 
+.print-area {
+  display: none;
+}
+
+.print-document {
+  color: #111827;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.print-header,
+.print-grid,
+.print-summary,
+.print-signatures {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.print-header {
+  align-items: start;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+
+.print-header h1,
+.print-document h2,
+.print-document p {
+  margin: 0;
+}
+
+.print-header strong {
+  justify-self: end;
+  font-size: 24px;
+}
+
+.print-document h2 {
+  margin: 18px 0 8px;
+  font-size: 17px;
+}
+
+.print-document table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.print-document th,
+.print-document td {
+  border: 1px solid #9ca3af;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.print-document th {
+  background: #eef2f4;
+}
+
+.print-document .right {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.muted-cell {
+  color: #6b7280;
+  text-align: center;
+}
+
+.print-summary {
+  justify-content: end;
+  grid-template-columns: minmax(260px, 340px);
+  margin-top: 18px;
+}
+
+.print-summary p {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid #d1d5db;
+  padding: 6px 0;
+}
+
+.print-summary .total {
+  border-bottom: 2px solid #111827;
+  font-size: 18px;
+}
+
+.print-notes {
+  margin-top: 18px;
+}
+
+.print-signatures {
+  margin-top: 44px;
+}
+
 @media (max-width: 900px) {
   body {
     grid-template-columns: 1fr;
@@ -508,5 +603,30 @@ menu {
 
   .stats {
     justify-content: stretch;
+  }
+}
+
+@media print {
+  body {
+    display: block;
+    background: #fff;
+  }
+
+  .sidebar,
+  .workspace,
+  dialog {
+    display: none !important;
+  }
+
+  .print-area {
+    display: block;
+  }
+
+  .print-document {
+    padding: 0;
+  }
+
+  @page {
+    margin: 14mm;
   }
 }
