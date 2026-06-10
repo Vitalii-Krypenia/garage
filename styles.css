@@ -182,6 +182,25 @@ textarea {
   font-size: 28px;
 }
 
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -4px 0 18px;
+}
+
+.tab {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--secondary);
+}
+
+.tab.active {
+  border-color: var(--primary);
+  background: var(--soft);
+  color: var(--primary-dark);
+}
+
 .stats {
   display: flex;
   gap: 10px;
