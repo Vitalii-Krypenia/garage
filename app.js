@@ -3,7 +3,10 @@ const STORAGE_KEY = "sto-client-registry-v1";
 const state = {
   clients: [],
   serviceItems: [],
-  activeTab: "clients",
+  appointments: [],
+  activeTab: "dashboard",
+  calendarDate: new Date(),
+  selectedScheduleDate: today(),
   selectedClientId: null,
   selectedCarId: null,
   editingRepairId: null,
@@ -23,8 +26,17 @@ const elements = {
   clientList: byId("clientList"),
   stats: byId("stats"),
   pageTitle: byId("pageTitle"),
+  dashboardTabBtn: byId("dashboardTabBtn"),
   clientsTabBtn: byId("clientsTabBtn"),
   catalogTabBtn: byId("catalogTabBtn"),
+  dashboardView: byId("dashboardView"),
+  calendarMonth: byId("calendarMonth"),
+  calendarGrid: byId("calendarGrid"),
+  prevMonthBtn: byId("prevMonthBtn"),
+  nextMonthBtn: byId("nextMonthBtn"),
+  selectedDateTitle: byId("selectedDateTitle"),
+  scheduleForm: byId("scheduleForm"),
+  dayAppointments: byId("dayAppointments"),
   emptyState: byId("emptyState"),
   content: byId("content"),
   catalogView: byId("catalogView"),
@@ -68,6 +80,7 @@ function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     clients: state.clients,
     serviceItems: state.serviceItems,
+    appointments: state.appointments,
   }));
 }
 
@@ -76,6 +89,7 @@ function load() {
   const saved = raw ? JSON.parse(raw) : [];
   state.clients = Array.isArray(saved) ? saved : saved.clients || [];
   state.serviceItems = Array.isArray(saved.serviceItems) ? saved.serviceItems : [];
+  state.appointments = Array.isArray(saved.appointments) ? saved.appointments : [];
   if (state.clients[0]) {
     state.selectedClientId = state.clients[0].id;
     state.selectedCarId = state.clients[0].cars?.[0]?.id || null;
@@ -116,14 +130,19 @@ function render() {
   renderStats();
   renderClients();
   renderServiceCatalog();
+  renderSchedule();
   renderTabs();
   renderMain();
 }
 
 function renderTabs() {
+  const isDashboard = state.activeTab === "dashboard";
   const isCatalog = state.activeTab === "catalog";
-  elements.clientsTabBtn.classList.toggle("active", !isCatalog);
+  const isClients = state.activeTab === "clients";
+  elements.dashboardTabBtn.classList.toggle("active", isDashboard);
+  elements.clientsTabBtn.classList.toggle("active", isClients);
   elements.catalogTabBtn.classList.toggle("active", isCatalog);
+  elements.dashboardView.classList.toggle("hidden", !isDashboard);
   elements.catalogView.classList.toggle("hidden", !isCatalog);
 }
 
@@ -134,11 +153,13 @@ function renderStats() {
     (sum, client) => sum + (client.cars || []).reduce((carSum, car) => carSum + (car.repairs?.length || 0), 0),
     0,
   );
+  const plannedCount = state.appointments.length;
 
   elements.stats.innerHTML = `
     <div class="stat"><b>${clientCount}</b><span>клієнтів</span></div>
     <div class="stat"><b>${carCount}</b><span>авто</span></div>
     <div class="stat"><b>${repairCount}</b><span>робіт</span></div>
+    <div class="stat"><b>${plannedCount}</b><span>план</span></div>
   `;
 }
 
@@ -166,17 +187,21 @@ function renderClients() {
 }
 
 function renderMain() {
+  const isDashboard = state.activeTab === "dashboard";
   const isCatalog = state.activeTab === "catalog";
+  const isClients = state.activeTab === "clients";
   const client = selectedClient();
-  elements.emptyState.classList.toggle("hidden", isCatalog || Boolean(client));
-  elements.content.classList.toggle("hidden", isCatalog || !client);
-  elements.pageTitle.textContent = isCatalog
+  elements.emptyState.classList.toggle("hidden", !isClients || Boolean(client));
+  elements.content.classList.toggle("hidden", !isClients || !client);
+  elements.pageTitle.textContent = isDashboard
+    ? "Планування робіт"
+    : isCatalog
     ? "Довідник робіт"
     : client
       ? client.name || "Клієнт без імені"
       : "Оберіть клієнта";
 
-  if (isCatalog || !client) return;
+  if (!isClients || !client) return;
 
   setFormValues(elements.clientForm, client);
   renderCars(client);
@@ -229,6 +254,109 @@ function renderServiceCatalog() {
         )
         .join("")
     : `<p class="muted">Додайте типові роботи, щоб вибирати їх у ремонті.</p>`;
+}
+
+function renderSchedule() {
+  renderScheduleSelectors();
+  renderCalendar();
+  renderDayAppointments();
+}
+
+function renderScheduleSelectors() {
+  const clientSelect = elements.scheduleForm.elements.clientId;
+  const carSelect = elements.scheduleForm.elements.carId;
+  const selectedClientId = clientSelect.value || state.selectedClientId || state.clients[0]?.id || "";
+  const client = state.clients.find((item) => item.id === selectedClientId) || state.clients[0] || null;
+
+  clientSelect.innerHTML = state.clients.length
+    ? state.clients
+        .map((clientItem) => `<option value="${clientItem.id}" ${clientItem.id === client?.id ? "selected" : ""}>${escapeHtml(clientItem.name || "Без імені")}</option>`)
+        .join("")
+    : `<option value="">Спочатку додайте клієнта</option>`;
+
+  const cars = client?.cars || [];
+  const selectedCarId = carSelect.value || cars[0]?.id || "";
+  carSelect.innerHTML = cars.length
+    ? cars
+        .map((car) => {
+          const title = [car.model, car.year, car.plate].filter(Boolean).join(" · ") || car.vin || "Авто без назви";
+          return `<option value="${car.id}" ${car.id === selectedCarId ? "selected" : ""}>${escapeHtml(title)}</option>`;
+        })
+        .join("")
+    : `<option value="">Спочатку додайте авто</option>`;
+
+  elements.scheduleForm.elements.date.value = state.selectedScheduleDate;
+}
+
+function renderCalendar() {
+  const monthDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth(), 1);
+  const monthName = monthDate.toLocaleDateString("uk-UA", { month: "long", year: "numeric" });
+  const firstDay = (monthDate.getDay() + 6) % 7;
+  const start = new Date(monthDate);
+  start.setDate(1 - firstDay);
+  elements.calendarMonth.textContent = monthName[0].toUpperCase() + monthName.slice(1);
+
+  const days = [];
+  for (let index = 0; index < 42; index += 1) {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    const key = dateKey(date);
+    const count = appointmentsForDate(key).length;
+    const loadClass = count >= 5 ? "load-high" : count >= 3 ? "load-medium" : count >= 1 ? "load-low" : "";
+    days.push(`
+      <button class="calendar-day ${date.getMonth() !== monthDate.getMonth() ? "outside" : ""} ${key === state.selectedScheduleDate ? "selected" : ""} ${loadClass}" data-calendar-date="${key}" type="button">
+        <b>${date.getDate()}</b>
+        <span>${count ? `${count} записів` : "вільно"}</span>
+      </button>
+    `);
+  }
+  elements.calendarGrid.innerHTML = days.join("");
+}
+
+function renderDayAppointments() {
+  const appointments = appointmentsForDate(state.selectedScheduleDate);
+  const title = new Date(`${state.selectedScheduleDate}T00:00:00`).toLocaleDateString("uk-UA", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  elements.selectedDateTitle.textContent = title[0].toUpperCase() + title.slice(1);
+  elements.dayAppointments.innerHTML = appointments.length
+    ? appointments
+        .map((appointment) => {
+          const client = state.clients.find((item) => item.id === appointment.clientId);
+          const car = client?.cars?.find((item) => item.id === appointment.carId);
+          const carTitle = car ? [car.model, car.year, car.plate].filter(Boolean).join(" · ") : "Авто не знайдено";
+          return `
+            <article class="appointment-item">
+              <div>
+                <strong>${escapeHtml(appointment.time || "Без часу")} · ${escapeHtml(client?.name || "Клієнт не знайдений")}</strong>
+                <span class="muted">${escapeHtml(carTitle)}</span>
+              </div>
+              <div>${escapeHtml(appointment.work || "").replaceAll("\n", "<br>")}</div>
+              ${appointment.notes ? `<span class="muted">${escapeHtml(appointment.notes)}</span>` : ""}
+              <div class="appointment-actions">
+                <button class="ghost compact" data-open-appointment="${appointment.id}" type="button">Відкрити авто</button>
+                <button class="ghost danger compact" data-delete-appointment="${appointment.id}" type="button">Видалити</button>
+              </div>
+            </article>
+          `;
+        })
+        .join("")
+    : `<p class="muted">На цей день записів ще немає.</p>`;
+}
+
+function appointmentsForDate(date) {
+  return state.appointments
+    .filter((appointment) => appointment.date === date)
+    .sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
+}
+
+function dateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function renderOilStatus(car) {
@@ -439,6 +567,46 @@ function addCar() {
   elements.carForm.elements.model.select();
 }
 
+function addAppointment(event) {
+  event.preventDefault();
+  const data = formData(elements.scheduleForm);
+  if (!data.date || !data.clientId || !data.carId || !data.work.trim()) {
+    elements.scheduleForm.reportValidity();
+    return;
+  }
+  state.appointments.push({
+    id: uid(),
+    date: data.date,
+    time: data.time,
+    clientId: data.clientId,
+    carId: data.carId,
+    work: data.work.trim(),
+    notes: data.notes.trim(),
+  });
+  state.selectedScheduleDate = data.date;
+  state.calendarDate = new Date(`${data.date}T00:00:00`);
+  elements.scheduleForm.elements.work.value = "";
+  elements.scheduleForm.elements.notes.value = "";
+  save();
+  render();
+}
+
+function openAppointment(appointmentId) {
+  const appointment = state.appointments.find((item) => item.id === appointmentId);
+  if (!appointment) return;
+  state.activeTab = "clients";
+  state.selectedClientId = appointment.clientId;
+  state.selectedCarId = appointment.carId;
+  render();
+}
+
+function deleteAppointment(appointmentId) {
+  if (!confirm("Видалити цей запис із планування?")) return;
+  state.appointments = state.appointments.filter((appointment) => appointment.id !== appointmentId);
+  save();
+  render();
+}
+
 function openRepairDialog(repairId = null) {
   const car = selectedCar();
   if (!car) return;
@@ -581,6 +749,7 @@ function exportData() {
     version: 1,
     clients: state.clients,
     serviceItems: state.serviceItems,
+    appointments: state.appointments,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -599,10 +768,12 @@ function importData(file) {
       const payload = JSON.parse(reader.result);
       const clients = Array.isArray(payload) ? payload : payload.clients;
       const serviceItems = Array.isArray(payload.serviceItems) ? payload.serviceItems : [];
+      const appointments = Array.isArray(payload.appointments) ? payload.appointments : [];
       if (!Array.isArray(clients)) throw new Error("Bad backup");
       if (!confirm("Імпорт замінить поточну локальну базу. Продовжити?")) return;
       state.clients = clients;
       state.serviceItems = serviceItems;
+      state.appointments = appointments;
       state.selectedClientId = state.clients[0]?.id || null;
       state.selectedCarId = state.clients[0]?.cars?.[0]?.id || null;
       save();
@@ -631,6 +802,10 @@ function escapeAttr(value = "") {
 
 elements.newClientBtn.addEventListener("click", addClient);
 elements.emptyNewClientBtn.addEventListener("click", addClient);
+elements.dashboardTabBtn.addEventListener("click", () => {
+  state.activeTab = "dashboard";
+  render();
+});
 elements.clientsTabBtn.addEventListener("click", () => {
   state.activeTab = "clients";
   render();
@@ -647,6 +822,39 @@ elements.newCarBtn.addEventListener("click", addCar);
 elements.newRepairBtn.addEventListener("click", () => openRepairDialog());
 elements.addPartBtn.addEventListener("click", () => addPartRow());
 elements.saveRepairBtn.addEventListener("click", saveRepair);
+elements.scheduleForm.addEventListener("submit", addAppointment);
+elements.scheduleForm.elements.clientId.addEventListener("change", () => {
+  const clientId = elements.scheduleForm.elements.clientId.value;
+  const client = state.clients.find((item) => item.id === clientId);
+  elements.scheduleForm.elements.carId.value = client?.cars?.[0]?.id || "";
+  renderScheduleSelectors();
+});
+elements.scheduleForm.elements.date.addEventListener("change", () => {
+  state.selectedScheduleDate = elements.scheduleForm.elements.date.value || today();
+  state.calendarDate = new Date(`${state.selectedScheduleDate}T00:00:00`);
+  renderSchedule();
+});
+elements.prevMonthBtn.addEventListener("click", () => {
+  state.calendarDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth() - 1, 1);
+  renderSchedule();
+});
+elements.nextMonthBtn.addEventListener("click", () => {
+  state.calendarDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth() + 1, 1);
+  renderSchedule();
+});
+elements.calendarGrid.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-calendar-date]");
+  if (!button) return;
+  state.selectedScheduleDate = button.dataset.calendarDate;
+  state.calendarDate = new Date(`${state.selectedScheduleDate}T00:00:00`);
+  renderSchedule();
+});
+elements.dayAppointments.addEventListener("click", (event) => {
+  const openButton = event.target.closest("[data-open-appointment]");
+  const deleteButton = event.target.closest("[data-delete-appointment]");
+  if (openButton) openAppointment(openButton.dataset.openAppointment);
+  if (deleteButton) deleteAppointment(deleteButton.dataset.deleteAppointment);
+});
 
 elements.serviceCatalogForm.addEventListener("submit", (event) => {
   event.preventDefault();
