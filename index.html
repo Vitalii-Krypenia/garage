@@ -40,6 +40,11 @@
         <div class="stats" id="stats"></div>
       </section>
 
+      <nav class="tabs" aria-label="Розділи програми">
+        <button class="tab active" id="clientsTabBtn" type="button">Клієнти</button>
+        <button class="tab" id="catalogTabBtn" type="button">Довідник робіт</button>
+      </nav>
+
       <section class="empty" id="emptyState">
         <h2>Почніть з додавання клієнта</h2>
         <p>Дані залишаються у браузері на цьому комп'ютері. Для перенесення можна експортувати резервну копію.</p>
@@ -67,24 +72,6 @@
             </label>
             <button class="primary compact" type="submit">Зберегти клієнта</button>
           </form>
-        </div>
-
-        <div class="panel">
-          <div class="panel-head">
-            <h3>Довідник робіт</h3>
-          </div>
-          <form class="catalog-form" id="serviceCatalogForm">
-            <label>
-              Найменування роботи
-              <input name="name" placeholder="Наприклад: Заміна мастила" required />
-            </label>
-            <label>
-              Ціна
-              <input name="price" type="number" min="0" step="0.01" required />
-            </label>
-            <button class="secondary compact" type="submit">+ Додати</button>
-          </form>
-          <div class="service-catalog" id="serviceCatalog"></div>
         </div>
 
         <div class="split">
@@ -174,6 +161,29 @@
           </div>
           <div class="repair-list" id="repairList"></div>
         </section>
+      </section>
+
+      <section class="content hidden" id="catalogView">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h3>Довідник робіт</h3>
+              <p class="muted">Додайте типові роботи один раз, а потім вибирайте їх у ремонті.</p>
+            </div>
+          </div>
+          <form class="catalog-form" id="serviceCatalogForm">
+            <label>
+              Найменування роботи
+              <input name="name" placeholder="Наприклад: Заміна мастила" required />
+            </label>
+            <label>
+              Ціна
+              <input name="price" type="number" min="0" step="0.01" required />
+            </label>
+            <button class="secondary compact" type="submit">+ Додати</button>
+          </form>
+          <div class="service-catalog" id="serviceCatalog"></div>
+        </div>
       </section>
     </main>
 
