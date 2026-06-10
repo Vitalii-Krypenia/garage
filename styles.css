@@ -515,8 +515,12 @@ menu {
   margin: 0;
 }
 
-.print-header strong {
+.print-company {
   justify-self: end;
+  text-align: right;
+}
+
+.print-company strong {
   font-size: 24px;
 }
 
