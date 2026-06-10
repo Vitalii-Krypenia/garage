@@ -69,6 +69,24 @@
           </form>
         </div>
 
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Довідник робіт</h3>
+          </div>
+          <form class="catalog-form" id="serviceCatalogForm">
+            <label>
+              Найменування роботи
+              <input name="name" placeholder="Наприклад: Заміна мастила" required />
+            </label>
+            <label>
+              Ціна
+              <input name="price" type="number" min="0" step="0.01" required />
+            </label>
+            <button class="secondary compact" type="submit">+ Додати</button>
+          </form>
+          <div class="service-catalog" id="serviceCatalog"></div>
+        </div>
+
         <div class="split">
           <section class="panel">
             <div class="panel-head">
@@ -189,6 +207,13 @@
             Що робилося
             <textarea name="description" rows="3" required></textarea>
           </label>
+        </div>
+
+        <div class="checklist-block">
+          <div class="parts-head">
+            <h4>Типові роботи</h4>
+          </div>
+          <div id="repairServiceChecklist" class="service-checklist"></div>
         </div>
 
         <div class="parts-head">
