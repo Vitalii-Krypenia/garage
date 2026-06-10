@@ -340,7 +340,10 @@ function printRepair(repairId) {
           <h1>Акт виконаних робіт</h1>
           <p>Дата: ${escapeHtml(repair.date)}</p>
         </div>
-        <strong>СТО</strong>
+        <div class="print-company">
+          <strong>FAVORITE GARAGE</strong>
+          <p>+380985456508</p>
+        </div>
       </header>
 
       <section class="print-grid">
