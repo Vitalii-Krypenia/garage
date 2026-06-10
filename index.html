@@ -57,6 +57,13 @@
               <span>Нд</span>
             </div>
             <div class="calendar-grid" id="calendarGrid"></div>
+            <div class="calendar-legend">
+              <span><i class="legend-free"></i>Вільно</span>
+              <span><i class="legend-low"></i>До 50%</span>
+              <span><i class="legend-medium"></i>50-90%</span>
+              <span><i class="legend-high"></i>Завантажено</span>
+              <span><i class="legend-off"></i>Вихідний</span>
+            </div>
           </section>
 
           <section class="panel">
@@ -65,6 +72,7 @@
                 <h3>Запис на роботи</h3>
                 <p class="muted" id="selectedDateTitle"></p>
               </div>
+              <button class="ghost danger compact" id="toggleDayOffBtn" type="button">Вихідний</button>
             </div>
             <form class="grid-form" id="scheduleForm">
               <label>
@@ -83,10 +91,27 @@
                 Авто
                 <select name="carId" required></select>
               </label>
+              <label>
+                Тривалість, хв
+                <input name="durationMinutes" type="number" min="15" step="15" value="60" required />
+              </label>
+              <label>
+                Бажаний час
+                <select name="timeMode">
+                  <option value="auto">Найближчий вільний</option>
+                  <option value="manual">Вказаний час</option>
+                </select>
+              </label>
               <label class="wide">
                 Запланована робота
                 <textarea name="work" rows="2" required></textarea>
               </label>
+              <div class="wide">
+                <div class="parts-head">
+                  <h4>Типові роботи</h4>
+                </div>
+                <div id="scheduleServiceChecklist" class="service-checklist"></div>
+              </div>
               <label class="wide">
                 Нотатки
                 <textarea name="notes" rows="2"></textarea>
@@ -243,6 +268,10 @@
             <label>
               Ціна
               <input name="price" type="number" min="0" step="0.01" required />
+            </label>
+            <label>
+              Тривалість, хв
+              <input name="durationMinutes" type="number" min="15" step="15" value="60" required />
             </label>
             <button class="secondary compact" type="submit">+ Додати</button>
           </form>
