@@ -4,6 +4,21 @@ const LUNCH_START = "13:00";
 const LUNCH_END = "14:00";
 const WORK_END = "18:00";
 const DAY_CAPACITY_MINUTES = 480;
+const ADMIN_PIN = "0000";
+const DIAGNOSTIC_ITEMS = [
+  "Амортизатори",
+  "Опори амортизаторів",
+  "Сайлентблоки",
+  "Кульові опори",
+  "Рульові наконечники",
+  "Рульові тяги",
+  "Стійки стабілізатора",
+  "Втулки стабілізатора",
+  "Підшипники ступиці",
+  "Гальмівні колодки",
+  "Гальмівні диски",
+  "Пильники / відбійники",
+];
 
 const state = {
   clients: [],
@@ -11,6 +26,8 @@ const state = {
   appointments: [],
   employees: [],
   closedDays: [],
+  sessionRole: null,
+  sessionEmployeeId: null,
   activeTab: "dashboard",
   calendarDate: new Date(),
   selectedScheduleDate: today(),
@@ -24,6 +41,11 @@ const $ = (selector) => document.querySelector(selector);
 const byId = (id) => document.getElementById(id);
 
 const elements = {
+  loginScreen: byId("loginScreen"),
+  loginForm: byId("loginForm"),
+  loginPinLabel: byId("loginPinLabel"),
+  loginEmployeeLabel: byId("loginEmployeeLabel"),
+  logoutBtn: byId("logoutBtn"),
   searchInput: byId("searchInput"),
   newClientBtn: byId("newClientBtn"),
   exportBtn: byId("exportBtn"),
@@ -70,9 +92,14 @@ const elements = {
   repairForm: byId("repairForm"),
   repairDialogTitle: byId("repairDialogTitle"),
   repairServiceChecklist: byId("repairServiceChecklist"),
+  diagnosticChecklist: byId("diagnosticChecklist"),
   partsList: byId("partsList"),
   printArea: byId("printArea"),
   addPartBtn: byId("addPartBtn"),
+  quickServiceName: byId("quickServiceName"),
+  quickServicePrice: byId("quickServicePrice"),
+  quickServiceDuration: byId("quickServiceDuration"),
+  quickAddServiceBtn: byId("quickAddServiceBtn"),
   saveRepairBtn: byId("saveRepairBtn"),
 };
 
@@ -147,13 +174,41 @@ function asNumber(value) {
 }
 
 function render() {
+  if (state.sessionRole === "employee") {
+    state.activeTab = "dashboard";
+  }
   renderStats();
   renderClients();
   renderServiceCatalog();
   renderEmployees();
+  renderLogin();
   renderSchedule();
   renderTabs();
   renderMain();
+  applyAccessMode();
+}
+
+function renderLogin() {
+  elements.loginScreen.classList.toggle("hidden", Boolean(state.sessionRole));
+  const employeeSelect = elements.loginForm.elements.employeeId;
+  employeeSelect.innerHTML = state.employees
+    .map((employee) => `<option value="${employee.id}">${escapeHtml(employee.name || "Працівник")}</option>`)
+    .join("");
+}
+
+function applyAccessMode() {
+  const isEmployee = state.sessionRole === "employee";
+  elements.clientsTabBtn.classList.toggle("hidden", isEmployee);
+  elements.employeesTabBtn.classList.toggle("hidden", isEmployee);
+  elements.catalogTabBtn.classList.toggle("hidden", isEmployee);
+  elements.newClientBtn.classList.toggle("hidden", isEmployee);
+  elements.exportBtn.classList.toggle("hidden", isEmployee);
+  elements.importBtn.classList.toggle("hidden", isEmployee);
+  elements.toggleDayOffBtn.classList.toggle("hidden", isEmployee);
+  elements.scheduleForm.classList.toggle("hidden", isEmployee);
+  if (isEmployee && state.activeTab !== "dashboard") {
+    state.activeTab = "dashboard";
+  }
 }
 
 function renderTabs() {
@@ -373,7 +428,7 @@ function renderCalendar() {
     date.setDate(start.getDate() + index);
     const key = dateKey(date);
     const isClosed = isClosedDay(key);
-    const booked = bookedMinutesForDate(key);
+    const booked = visibleBookedMinutesForDate(key);
     const capacity = dayCapacityMinutes();
     const percent = Math.round((booked / capacity) * 100);
     const loadClass = isClosed ? "day-off" : percent >= 90 ? "load-high" : percent >= 50 ? "load-medium" : percent > 0 ? "load-low" : "";
@@ -388,20 +443,21 @@ function renderCalendar() {
 }
 
 function renderDayAppointments() {
-  const appointments = appointmentsForDate(state.selectedScheduleDate);
+  const appointments = visibleAppointmentsForDate(state.selectedScheduleDate);
   const isClosed = isClosedDay(state.selectedScheduleDate);
   const title = new Date(`${state.selectedScheduleDate}T00:00:00`).toLocaleDateString("uk-UA", {
     weekday: "long",
     day: "numeric",
     month: "long",
   });
-  const booked = bookedMinutesForDate(state.selectedScheduleDate);
+  const booked = visibleBookedMinutesForDate(state.selectedScheduleDate);
   elements.selectedDateTitle.textContent = `${title[0].toUpperCase() + title.slice(1)} · ${isClosed ? "вихідний" : `зайнято ${formatDuration(booked)} з ${formatDuration(dayCapacityMinutes())}`}`;
   elements.toggleDayOffBtn.textContent = isClosed ? "Зробити робочим" : "Вихідний";
   elements.scheduleForm.classList.toggle("disabled-form", isClosed);
   [...elements.scheduleForm.elements].forEach((field) => {
     field.disabled = isClosed && field.type !== "hidden";
   });
+  if (!isClosed) syncScheduleAllDayFields();
   elements.dayAppointments.innerHTML = appointments.length
     ? appointments
         .map((appointment) => {
@@ -434,6 +490,12 @@ function appointmentsForDate(date) {
     .sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
 }
 
+function visibleAppointmentsForDate(date) {
+  const appointments = appointmentsForDate(date);
+  if (state.sessionRole !== "employee") return appointments;
+  return appointments.filter((appointment) => employeeForAppointment(appointment).id === state.sessionEmployeeId);
+}
+
 function isClosedDay(date) {
   return state.closedDays.includes(date);
 }
@@ -442,7 +504,12 @@ function bookedMinutesForDate(date) {
   return appointmentsForDate(date).reduce((sum, appointment) => sum + Number(appointment.durationMinutes || 60), 0);
 }
 
+function visibleBookedMinutesForDate(date) {
+  return visibleAppointmentsForDate(date).reduce((sum, appointment) => sum + Number(appointment.durationMinutes || 60), 0);
+}
+
 function dayCapacityMinutes() {
+  if (state.sessionRole === "employee") return DAY_CAPACITY_MINUTES;
   return Math.max(state.employees.length, 1) * DAY_CAPACITY_MINUTES;
 }
 
@@ -557,6 +624,17 @@ function formatDuration(minutes) {
   return `${rest} хв`;
 }
 
+function syncScheduleAllDayFields() {
+  const allDay = elements.scheduleForm.elements.allDay.checked;
+  elements.scheduleForm.elements.time.disabled = allDay;
+  elements.scheduleForm.elements.timeMode.disabled = allDay;
+  elements.scheduleForm.elements.durationMinutes.disabled = allDay;
+  if (allDay) {
+    elements.scheduleForm.elements.time.value = WORK_START;
+    elements.scheduleForm.elements.durationMinutes.value = DAY_CAPACITY_MINUTES;
+  }
+}
+
 function appointmentTimeRange(appointment) {
   if (!appointment.time) return "Без часу";
   const start = minutesFromTime(appointment.time);
@@ -643,10 +721,10 @@ function renderRepairs() {
 
 function repairTemplate(repair) {
   const parts = repair.parts || [];
-  const partsCost = parts.reduce((sum, part) => sum + Number(part.price || 0), 0);
+  const partsCost = parts.reduce((sum, part) => sum + partTotal(part), 0);
   const total = partsCost + Number(repair.laborCost || 0);
   const partsText = parts.length
-    ? parts.map((part) => `${escapeHtml(part.name || "Запчастина")} (${escapeHtml(part.serial || "без серії")}) - ${money(part.price)}`).join("<br>")
+    ? parts.map((part) => `${escapeHtml(part.name || "Запчастина")} · ${part.quantity || 1} шт · ${money(partTotal(part))}`).join("<br>")
     : "Запчастини не вказані";
 
   return `
@@ -658,6 +736,7 @@ function repairTemplate(repair) {
       <div class="repair-meta">
         <span>${escapeHtml(repair.date)}</span>
         <span>${Number(repair.odometer || 0).toLocaleString("uk-UA")} км</span>
+        <span>працівник: ${escapeHtml(employeeById(repair.employeeId)?.name || "не вказано")}</span>
         <span>робота: ${money(repair.laborCost)}</span>
         <span>разом: ${money(total)}</span>
         ${repair.oilChanged ? "<span>мастило замінено</span>" : ""}
@@ -673,13 +752,19 @@ function repairTemplate(repair) {
 
 function repairTotals(repair) {
   const parts = repair.parts || [];
-  const partsCost = parts.reduce((sum, part) => sum + Number(part.price || 0), 0);
+  const partsCost = parts.reduce((sum, part) => sum + partTotal(part), 0);
   const laborCost = Number(repair.laborCost || 0);
   return {
     partsCost,
     laborCost,
     total: partsCost + laborCost,
   };
+}
+
+function partTotal(part) {
+  const quantity = Number(part.quantity || 1);
+  const unitPrice = Number(part.unitPrice ?? part.price ?? 0);
+  return quantity * unitPrice;
 }
 
 function printRepair(repairId) {
@@ -706,13 +791,17 @@ function printRepair(repairId) {
             <tr>
               <td>${index + 1}</td>
               <td>${escapeHtml(part.name || "Запчастина")}</td>
-              <td>${escapeHtml(part.serial || "")}</td>
-              <td class="right">${money(part.price)}</td>
+              <td class="right">${Number(part.quantity || 1).toLocaleString("uk-UA")}</td>
+              <td class="right">${money(part.unitPrice ?? part.price)}</td>
+              <td class="right">${money(partTotal(part))}</td>
             </tr>
           `,
         )
         .join("")
-    : `<tr><td colspan="4" class="muted-cell">Запчастини не вказані</td></tr>`;
+    : `<tr><td colspan="5" class="muted-cell">Запчастини не вказані</td></tr>`;
+  const diagnosticRows = repair.diagnostics?.length
+    ? repair.diagnostics.map((item) => `<li>${escapeHtml(item)}</li>`).join("")
+    : "";
 
   elements.printArea.innerHTML = `
     <div class="print-document">
@@ -750,7 +839,7 @@ function printRepair(repairId) {
 
       <h2>Запчастини</h2>
       <table>
-        <thead><tr><th>№</th><th>Назва</th><th>Серійний номер</th><th>Ціна</th></tr></thead>
+        <thead><tr><th>№</th><th>Назва</th><th>К-сть</th><th>Ціна/шт</th><th>Сума</th></tr></thead>
         <tbody>${partRows}</tbody>
       </table>
 
@@ -763,6 +852,8 @@ function printRepair(repairId) {
       <section class="print-notes">
         <h2>Опис робіт</h2>
         <p>${escapeHtml(repair.description).replaceAll("\n", "<br>")}</p>
+        ${diagnosticRows ? `<h2>Діагностика ходової</h2><ul>${diagnosticRows}</ul>` : ""}
+        ${repair.diagnosticNotes ? `<p><b>Додатково:</b> ${escapeHtml(repair.diagnosticNotes).replaceAll("\n", "<br>")}</p>` : ""}
         ${repair.oilChanged ? "<p><b>Позначка:</b> мастило замінено.</p>" : ""}
       </section>
 
@@ -809,6 +900,10 @@ function addCar() {
     oilInterval: 10000,
     lastOilChangeKm: "",
     filterSerials: "",
+    oilFilterSerial: "",
+    airFilterSerial: "",
+    fuelFilterSerial: "",
+    cabinFilterSerial: "",
     repairs: [],
   };
   client.cars = client.cars || [];
@@ -823,12 +918,13 @@ function addCar() {
 function addAppointment(event) {
   event.preventDefault();
   const data = formData(elements.scheduleForm);
-  const durationMinutes = Number(data.durationMinutes || 60);
+  const allDay = data.allDay === "on";
+  const durationMinutes = allDay ? DAY_CAPACITY_MINUTES : Number(data.durationMinutes || 60);
   if (!data.date || !data.clientId || !data.carId || !data.employeeId || !data.work.trim() || !durationMinutes) {
     elements.scheduleForm.reportValidity();
     return;
   }
-  const preferredTime = data.timeMode === "manual" ? data.time || WORK_START : data.time || WORK_START;
+  const preferredTime = allDay ? WORK_START : data.timeMode === "manual" ? data.time || WORK_START : data.time || WORK_START;
   const slot = findNearestSlot(data.date, durationMinutes, preferredTime, data.employeeId);
   if (!slot) {
     alert("Не вдалося знайти вільний час для цього запису.");
@@ -844,6 +940,7 @@ function addAppointment(event) {
     employeeId: data.employeeId,
     work: data.work.trim(),
     durationMinutes,
+    allDay,
     serviceItemIds: selectedScheduleServiceIds(),
     services: selectedScheduleServices(),
     notes: [data.notes.trim(), moved ? `Запис поставлено на найближчий вільний час: ${slot.date} ${slot.time}.` : ""].filter(Boolean).join("\n"),
@@ -915,12 +1012,36 @@ function openRepairDialog(repairId = null) {
     odometer: repair?.odometer || car.odometer || 0,
     laborCost: repair?.laborCost || "",
     oilChanged: repair?.oilChanged ? "yes" : "no",
+    employeeId: repair?.employeeId || state.employees[0]?.id || "",
     description: repair?.description || "",
+    diagnosticNotes: repair?.diagnosticNotes || "",
   });
+  renderRepairEmployeeOptions(repair?.employeeId || state.employees[0]?.id || "");
   renderRepairServiceChecklist(repair?.serviceItemIds || []);
+  (repair?.services || []).forEach((service) => {
+    const select = elements.repairServiceChecklist.querySelector(`[data-service-employee="${service.id}"]`);
+    if (select && service.employeeId) select.value = service.employeeId;
+  });
+  renderDiagnosticChecklist(repair?.diagnostics || []);
   elements.partsList.innerHTML = "";
-  (repair?.parts?.length ? repair.parts : [{ name: "", serial: "", price: "" }]).forEach(addPartRow);
+  (repair?.parts?.length ? repair.parts : [{ name: "", serial: "", quantity: 1, unitPrice: "", price: "" }]).forEach(addPartRow);
   elements.repairDialog.showModal();
+}
+
+function renderRepairEmployeeOptions(selectedId = "") {
+  elements.repairForm.elements.employeeId.innerHTML = employeeOptions(selectedId);
+  elements.repairForm.elements.employeeId.value = selectedId || state.employees[0]?.id || "";
+}
+
+function renderDiagnosticChecklist(selected = []) {
+  elements.diagnosticChecklist.innerHTML = DIAGNOSTIC_ITEMS.map(
+    (item) => `
+      <label>
+        <input type="checkbox" name="diagnosticItem" value="${escapeAttr(item)}" ${selected.includes(item) ? "checked" : ""} />
+        ${escapeHtml(item)}
+      </label>
+    `,
+  ).join("");
 }
 
 function selectedServiceNames(ids) {
@@ -936,11 +1057,20 @@ function renderRepairServiceChecklist(selectedIds = []) {
               <input type="checkbox" name="serviceItem" value="${item.id}" ${selectedIds.includes(item.id) ? "checked" : ""} />
               <strong>${escapeHtml(item.name)}</strong>
               <span>${money(item.price)}</span>
+              <select name="serviceEmployee" data-service-employee="${item.id}">
+                ${employeeOptions("")}
+              </select>
             </label>
           `,
         )
         .join("")
     : `<p class="muted">Спочатку додайте роботи в довідник.</p>`;
+}
+
+function employeeOptions(selectedId = "") {
+  return state.employees
+    .map((employee) => `<option value="${employee.id}" ${employee.id === selectedId ? "selected" : ""}>${escapeHtml(employee.name || "Працівник")}</option>`)
+    .join("");
 }
 
 function selectedRepairServiceIds() {
@@ -955,6 +1085,7 @@ function selectedRepairServices() {
       id: item.id,
       name: item.name,
       price: asNumber(item.price),
+      employeeId: elements.repairServiceChecklist.querySelector(`[data-service-employee="${item.id}"]`)?.value || elements.repairForm.elements.employeeId.value,
     }));
 }
 
@@ -976,13 +1107,24 @@ function applySelectedServicesToRepair() {
 function addPartRow(part = {}) {
   const row = document.createElement("div");
   row.className = "part-row";
+  const quantity = part.quantity || 1;
+  const unitPrice = part.unitPrice ?? part.price ?? "";
   row.innerHTML = `
     <label>Назва<input name="partName" value="${escapeAttr(part.name || "")}" /></label>
     <label>Серійний номер<input name="partSerial" value="${escapeAttr(part.serial || "")}" /></label>
-    <label>Ціна<input name="partPrice" type="number" min="0" step="0.01" value="${escapeAttr(part.price || "")}" /></label>
+    <label>К-сть<input name="partQuantity" type="number" min="0" step="1" value="${escapeAttr(quantity)}" /></label>
+    <label>Ціна/шт<input name="partUnitPrice" type="number" min="0" step="0.01" value="${escapeAttr(unitPrice)}" /></label>
+    <label>Сума<input name="partTotal" type="number" value="${escapeAttr(partTotal({ quantity, unitPrice }))}" readonly /></label>
     <button class="ghost danger" data-remove-part type="button">×</button>
   `;
   elements.partsList.append(row);
+  updatePartRowTotal(row);
+}
+
+function updatePartRowTotal(row) {
+  const quantity = Number(row.querySelector('[name="partQuantity"]').value || 0);
+  const unitPrice = Number(row.querySelector('[name="partUnitPrice"]').value || 0);
+  row.querySelector('[name="partTotal"]').value = quantity * unitPrice;
 }
 
 function saveRepair() {
@@ -999,9 +1141,11 @@ function saveRepair() {
     .map((row) => ({
       name: row.querySelector('[name="partName"]').value.trim(),
       serial: row.querySelector('[name="partSerial"]').value.trim(),
-      price: asNumber(row.querySelector('[name="partPrice"]').value),
+      quantity: asNumber(row.querySelector('[name="partQuantity"]').value) || 1,
+      unitPrice: asNumber(row.querySelector('[name="partUnitPrice"]').value),
+      price: asNumber(row.querySelector('[name="partUnitPrice"]').value),
     }))
-    .filter((part) => part.name || part.serial || part.price !== "");
+    .filter((part) => part.name || part.serial || part.unitPrice !== "");
 
   const repair = {
     id: state.editingRepairId || uid(),
@@ -1009,9 +1153,12 @@ function saveRepair() {
     odometer: asNumber(data.odometer),
     laborCost: asNumber(data.laborCost),
     oilChanged: data.oilChanged === "yes",
+    employeeId: data.employeeId,
     description: data.description.trim(),
     serviceItemIds: selectedRepairServiceIds(),
     services: selectedRepairServices(),
+    diagnostics: [...elements.diagnosticChecklist.querySelectorAll('input[name="diagnosticItem"]:checked')].map((input) => input.value),
+    diagnosticNotes: data.diagnosticNotes.trim(),
     parts,
   };
 
@@ -1104,6 +1251,33 @@ function escapeAttr(value = "") {
 
 elements.newClientBtn.addEventListener("click", addClient);
 elements.emptyNewClientBtn.addEventListener("click", addClient);
+elements.loginForm.elements.role.addEventListener("change", () => {
+  const isEmployee = elements.loginForm.elements.role.value === "employee";
+  elements.loginPinLabel.classList.toggle("hidden", isEmployee);
+  elements.loginEmployeeLabel.classList.toggle("hidden", !isEmployee);
+});
+elements.loginForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const data = formData(elements.loginForm);
+  if (data.role === "admin") {
+    if (data.pin !== ADMIN_PIN) {
+      alert("Невірний PIN адміністратора.");
+      return;
+    }
+    state.sessionRole = "admin";
+    state.sessionEmployeeId = null;
+  } else {
+    state.sessionRole = "employee";
+    state.sessionEmployeeId = data.employeeId || state.employees[0]?.id || null;
+    state.activeTab = "dashboard";
+  }
+  render();
+});
+elements.logoutBtn.addEventListener("click", () => {
+  state.sessionRole = null;
+  state.sessionEmployeeId = null;
+  render();
+});
 elements.dashboardTabBtn.addEventListener("click", () => {
   state.activeTab = "dashboard";
   render();
@@ -1127,6 +1301,22 @@ elements.searchInput.addEventListener("input", renderClients);
 elements.newCarBtn.addEventListener("click", addCar);
 elements.newRepairBtn.addEventListener("click", () => openRepairDialog());
 elements.addPartBtn.addEventListener("click", () => addPartRow());
+elements.quickAddServiceBtn.addEventListener("click", () => {
+  const name = elements.quickServiceName.value.trim();
+  if (!name) return;
+  state.serviceItems.push({
+    id: uid(),
+    name,
+    price: asNumber(elements.quickServicePrice.value),
+    durationMinutes: asNumber(elements.quickServiceDuration.value) || 60,
+  });
+  elements.quickServiceName.value = "";
+  elements.quickServicePrice.value = "";
+  elements.quickServiceDuration.value = "";
+  save();
+  renderServiceCatalog();
+  renderRepairServiceChecklist(selectedRepairServiceIds());
+});
 elements.saveRepairBtn.addEventListener("click", saveRepair);
 elements.scheduleForm.addEventListener("submit", addAppointment);
 elements.employeeForm.addEventListener("submit", addEmployee);
@@ -1140,6 +1330,9 @@ elements.scheduleForm.elements.date.addEventListener("change", () => {
   state.selectedScheduleDate = elements.scheduleForm.elements.date.value || today();
   state.calendarDate = new Date(`${state.selectedScheduleDate}T00:00:00`);
   renderSchedule();
+});
+elements.scheduleForm.elements.allDay.addEventListener("change", () => {
+  syncScheduleAllDayFields();
 });
 elements.scheduleServiceChecklist.addEventListener("change", applyScheduleServices);
 elements.toggleDayOffBtn.addEventListener("click", toggleSelectedDayOff);
@@ -1274,6 +1467,14 @@ elements.partsList.addEventListener("click", (event) => {
   if (!button) return;
   button.closest(".part-row").remove();
   if (!elements.partsList.children.length) addPartRow();
+});
+
+elements.partsList.addEventListener("input", (event) => {
+  const row = event.target.closest(".part-row");
+  if (!row) return;
+  if (event.target.name === "partQuantity" || event.target.name === "partUnitPrice") {
+    updatePartRowTotal(row);
+  }
 });
 
 elements.serviceCatalog.addEventListener("input", (event) => {
