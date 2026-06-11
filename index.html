@@ -7,6 +7,29 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <section class="login-screen" id="loginScreen">
+      <form class="login-card" id="loginForm">
+        <h2>Вхід</h2>
+        <label>
+          Роль
+          <select name="role">
+            <option value="admin">Адміністратор</option>
+            <option value="employee">Працівник</option>
+          </select>
+        </label>
+        <label id="loginPinLabel">
+          PIN адміністратора
+          <input name="pin" type="password" placeholder="0000" />
+        </label>
+        <label id="loginEmployeeLabel" class="hidden">
+          Працівник
+          <select name="employeeId"></select>
+        </label>
+        <button class="primary" type="submit">Увійти</button>
+        <p class="muted">Локальний режим доступу. Для серверної авторизації потрібен бекенд.</p>
+      </form>
+    </section>
+
     <aside class="sidebar">
       <div class="brand">
         <span class="brand-mark">FG</span>
@@ -22,6 +45,7 @@
         <button class="sidebar-btn" id="importBtn" type="button">Імпорт бази</button>
         <input class="hidden" id="importFile" type="file" accept="application/json,.json" />
       </div>
+      <button class="sidebar-btn" id="logoutBtn" type="button">Вийти</button>
     </aside>
 
     <main class="workspace">
@@ -106,6 +130,10 @@
                   <option value="auto">Найближчий вільний</option>
                   <option value="manual">Вказаний час</option>
                 </select>
+              </label>
+              <label class="check-row">
+                <input name="allDay" type="checkbox" />
+                Робота на цілий день
               </label>
               <label class="wide">
                 Запланована робота
@@ -237,8 +265,24 @@
                 <input name="lastOilChangeKm" type="number" min="0" />
               </label>
               <label class="wide">
-                Серійні номери фільтрів
-                <textarea name="filterSerials" rows="2" placeholder="Масляний, повітряний, паливний, салону"></textarea>
+                Старі нотатки по фільтрах
+                <textarea name="filterSerials" rows="2" placeholder="Для сумісності зі старими записами"></textarea>
+              </label>
+              <label>
+                Масляний фільтр
+                <input name="oilFilterSerial" />
+              </label>
+              <label>
+                Повітряний фільтр
+                <input name="airFilterSerial" />
+              </label>
+              <label>
+                Паливний фільтр
+                <input name="fuelFilterSerial" />
+              </label>
+              <label>
+                Фільтр салону
+                <input name="cabinFilterSerial" />
               </label>
               <button class="primary compact" type="submit">Зберегти авто</button>
             </form>
@@ -336,6 +380,10 @@
               <option value="yes">Так</option>
             </select>
           </label>
+          <label>
+            Загальний працівник
+            <select name="employeeId"></select>
+          </label>
           <label class="wide">
             Що робилося
             <textarea name="description" rows="3" required></textarea>
@@ -347,6 +395,29 @@
             <h4>Типові роботи</h4>
           </div>
           <div id="repairServiceChecklist" class="service-checklist"></div>
+        </div>
+
+        <div class="quick-service">
+          <div class="parts-head">
+            <h4>Додати роботу в довідник</h4>
+          </div>
+          <div class="quick-service-form">
+            <input id="quickServiceName" placeholder="Назва роботи" />
+            <input id="quickServicePrice" type="number" min="0" step="0.01" placeholder="Ціна" />
+            <input id="quickServiceDuration" type="number" min="15" step="15" placeholder="Хв" />
+            <button class="secondary compact" id="quickAddServiceBtn" type="button">+ Робота</button>
+          </div>
+        </div>
+
+        <div class="checklist-block">
+          <div class="parts-head">
+            <h4>Діагностика ходової</h4>
+          </div>
+          <div id="diagnosticChecklist" class="diagnostic-list"></div>
+          <label class="wide">
+            Додаткові висновки
+            <textarea name="diagnosticNotes" rows="2"></textarea>
+          </label>
         </div>
 
         <div class="parts-head">
