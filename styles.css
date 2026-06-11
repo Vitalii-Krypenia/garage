@@ -29,6 +29,30 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.login-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(23, 37, 43, 0.92);
+}
+
+.login-card {
+  width: min(420px, 100%);
+  border-radius: 8px;
+  padding: 22px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+  display: grid;
+  gap: 14px;
+}
+
+.login-card h2 {
+  margin: 0;
+}
+
 button,
 input,
 select,
@@ -337,20 +361,24 @@ textarea {
 }
 
 .calendar-day.load-low {
-  background: #ecfdf3;
+  background: #d1fadf;
+  border-color: #12b76a;
 }
 
 .calendar-day.load-medium {
-  background: #fffaeb;
+  background: #fedf89;
+  border-color: #f79009;
 }
 
 .calendar-day.load-high {
-  background: #fef3f2;
+  background: #fecdca;
+  border-color: #f04438;
 }
 
 .calendar-day.day-off {
-  background: #e5e7eb;
-  color: #6b7280;
+  background: #d1d5db;
+  border-color: #6b7280;
+  color: #374151;
 }
 
 .calendar-day b {
@@ -395,15 +423,15 @@ textarea {
 }
 
 .legend-low {
-  background: #ecfdf3;
+  background: #d1fadf;
 }
 
 .legend-medium {
-  background: #fffaeb;
+  background: #fedf89;
 }
 
 .legend-high {
-  background: #fef3f2;
+  background: #fecdca;
 }
 
 .legend-off {
@@ -559,7 +587,7 @@ button {
 
 .service-choice {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(130px, 180px);
   gap: 10px;
   align-items: center;
   border: 1px solid var(--line);
@@ -567,6 +595,44 @@ button {
   padding: 10px;
   background: #fff;
   font-weight: 400;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.check-row input {
+  width: auto;
+}
+
+.quick-service-form {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 110px 90px auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.diagnostic-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.diagnostic-list label {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+}
+
+.diagnostic-list input {
+  width: auto;
 }
 
 .service-choice input {
@@ -653,7 +719,7 @@ dialog::backdrop {
 
 .part-row {
   display: grid;
-  grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) 110px 42px;
+  grid-template-columns: minmax(120px, 1fr) minmax(100px, 1fr) 80px 110px 110px 42px;
   gap: 10px;
   align-items: end;
 }
@@ -782,6 +848,8 @@ menu {
   .schedule-layout,
   .grid-form,
   .part-row,
+  .quick-service-form,
+  .diagnostic-list,
   .catalog-form,
   .catalog-row,
   .employee-form,
